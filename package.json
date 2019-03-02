@@ -1,6 +1,6 @@
 {
   "name": "redux-bundler-async-resources",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "redux-bundler bundle that manages a collection of async resources",
   "main": "index.js",
   "scripts": {
@@ -42,12 +42,11 @@
     "jest": "^24.1.0",
     "microbundle": "^0.10.1",
     "prettier": "^1.16.4",
-    "redux-bundler": "^23.1.0"
+    "redux-bundler": "^23.1.0",
+    "timekeeper": "^2.1.2"
   },
   "peerDependencies": {
     "redux-bundler": "*"
   },
-  "dependencies": {
-    "timekeeper": "^2.1.2"
-  }
+  "dependencies": {}
 }
