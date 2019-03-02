@@ -1,0 +1,53 @@
+{
+  "name": "redux-bundler-async-resources",
+  "version": "1.0.0",
+  "description": "redux-bundler bundle that manages a collection of async resources",
+  "main": "index.js",
+  "scripts": {
+    "build": "microbundle",
+    "prepublishOnly": "microbundle",
+    "dev": "microbundle watch",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abuinitski/redux-bundler-async-resources.git"
+  },
+  "keywords": [
+    "PWAs",
+    "bundler",
+    "redux"
+  ],
+  "author": "Arseni Buinitski <arseni.buinitski@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/abuinitski/redux-bundler-async-resources/issues"
+  },
+  "homepage": "https://github.com/abuinitski/redux-bundler-async-resources#readme",
+  "prettier": {
+    "printWidth": 120,
+    "tabWidth": 2,
+    "useTabs": false,
+    "semi": false,
+    "trailingComma": "es5",
+    "singleQuote": true,
+    "bracketSpacing": true,
+    "jsxSingleQuote": false,
+    "jsxBracketSameLine": false,
+    "arrowParens": "avoid"
+  },
+  "devDependencies": {
+    "@babel/preset-env": "^7.3.4",
+    "babel-jest": "^24.1.0",
+    "jest": "^24.1.0",
+    "microbundle": "^0.10.1",
+    "prettier": "^1.16.4",
+    "redux-bundler": "^23.1.0"
+  },
+  "peerDependencies": {
+    "redux-bundler": "*"
+  },
+  "dependencies": {
+    "timekeeper": "^2.1.2"
+  }
+}
