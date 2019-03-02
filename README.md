@@ -32,10 +32,9 @@ export default composeBundles(
 
   {
     name: 'currentCarReviews',
-    reducer: (state = { carId: null, reviewsItem: null }, action) => {
+    reducer: (state = null, action) => {
       if (action.type === 'currentCarReviews.CHANGED') {
-        const { carId, reviewsItem } = action.payload
-        return { ...state, carId, reviewsItem }
+        return action.payload
       }
       return state
     },
@@ -44,27 +43,27 @@ export default composeBundles(
 
     selectCurrentCarReviews: createSelector(
       'selectCurrentCarReviewsRaw',
-      ({ reviewsItem }) => asyncResources.getItemData(reviewsItem)
+      reviewsItem => asyncResources.getItemData(reviewsItem)
     ),
 
     selectCurrentCarReviewsError: createSelector(
       'selectCurrentCarReviewsRaw',
-      ({ reviewsItem }) => asyncResources.getItemError(reviewsItem)
+      reviewsItem => asyncResources.getItemError(reviewsItem)
     ),
 
     selectCurrentCarReviewsLoading: createSelector(
       'selectCurrentCarReviewsRaw',
-      ({ reviewsItem }) => asyncResources.itemIsLoading(reviewsItem)
+      reviewsItem => asyncResources.itemIsLoading(reviewsItem)
     ),
 
     reactCurrentCarReviewsChanged: createSelector(
       'selectCurrentCarReviewsRaw',
       'selectCurrentCarId',
       'selectItemsOfCarReviews',
-      ({ carId: prevCarId, reviewsItem: prevReviewsItem }, carId, carReviews) => {
+      (prevReviewsItem, carId, carReviews) => {
         const reviewsItem = carReviews[carId]
-        if (prevCarId !== carId || prevReviewsItem !== reviewsItem) {
-          return { type: 'currentCarReviews.CHANGED', payload: { carId, reviewsItem } }
+        if (prevReviewsItem !== reviewsItem) {
+          return { type: 'currentCarReviews.CHANGED', payload: reviewsItem }
         }
       }
     ),
@@ -139,10 +138,11 @@ export default function CurrentCarReviews() {
 * `getItemData(item)` – will return anything that `getPromise` previously resolved with or `undefined` if it didn't happen before 
 * `itemIsPresent(item)` – `true` if `getItemData` is currently able to return some data to show 
 * `itemIsLoading(item)` – `true` if item is currently loading (irrelevant of whether it has some data or not, i.e. of `itemIsPresent` / `getItemData` result)
-* `itemIsPendingForFetch(item)` – `true` if there are any of mentioned conditions are present that result in necessity to trigger `doFetchItemOf${Name}`:
+* `itemIsPendingForFetch(item, [{ isOnline = undefined }])` – `true` if there are any of mentioned conditions are present that result in necessity to trigger `doFetchItemOf${Name}`:
   * either this item is in pristine state
   * or it failed, retry is enabled and `retryAfter` has passed (and error is not permanent)
   * or it fetched and is stale (either manually or because `staleAfter` has passed)
+  * `isOnline` is an optional check to not even try loading anything if device is offline; may omit if online check is not needed
 * `getItemError(item)` – something that `getPromise` previously rejected with. Will reset on when next fetch will finish (or fail).
 * `itemIsReadyForRetry(item)` – `true` if this item contains an error, and `retryAfter` has passed.
 * `itemErrorIsPermanent(item)` – `true` if `getPromise` has rejected with something that had `persistent: true` property in it. Retry behavior will be disabled in this case.
