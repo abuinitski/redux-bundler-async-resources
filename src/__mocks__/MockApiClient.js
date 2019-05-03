@@ -1,7 +1,8 @@
 const Items = {
   1: 'One',
   2: 'Two',
-  3: 'Three'
+  3: 'Three',
+  nilItem: null,
 }
 
 export default function MockApiClient() {
@@ -31,7 +32,7 @@ export default function MockApiClient() {
     }
 
     const item = Items[itemId]
-    if (!item) {
+    if (item === undefined) {
       request.reject('404')
     } else if (error) {
       request.reject(error)

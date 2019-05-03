@@ -1,6 +1,6 @@
 {
   "name": "redux-bundler-async-resources",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "redux-bundler bundle that manages a collection of async resources",
   "main": "index.js",
   "scripts": {
@@ -37,13 +37,13 @@
     "arrowParens": "avoid"
   },
   "devDependencies": {
-    "@babel/preset-env": "^7.3.4",
-    "babel-jest": "^24.1.0",
-    "jest": "^24.1.0",
-    "microbundle": "^0.10.1",
-    "prettier": "^1.16.4",
+    "@babel/preset-env": "^7.4.4",
+    "babel-jest": "^24.7.1",
+    "jest": "^24.7.1",
+    "microbundle": "^0.11.0",
+    "prettier": "^1.17.0",
     "redux-bundler": "^23.1.0",
-    "timekeeper": "^2.1.2"
+    "timekeeper": "^2.2.0"
   },
   "peerDependencies": {
     "redux-bundler": "*"

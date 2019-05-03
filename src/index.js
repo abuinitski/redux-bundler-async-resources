@@ -11,6 +11,8 @@ import {
 
 export { default as createAsyncResourcesBundle } from './createAsyncResourcesBundle'
 
+export { default as createAsyncResourceBundle } from './createAsyncResourceBundle'
+
 export const asyncResources = {
   getItemData,
   itemIsPresent,

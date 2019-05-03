@@ -2,35 +2,43 @@ import timekeeper from 'timekeeper'
 import { createReactorBundle, appTimeBundle, composeBundlesRaw } from 'redux-bundler'
 
 import MockApiClient from '../__mocks__/MockApiClient'
-import { createAsyncResourcesBundle, asyncResources } from '../index'
+import { createAsyncResourceBundle } from '../index'
 
 const START_TIME = 1000
 
-describe('createAsyncResourcesBundle', () => {
+describe('createAsyncResourceBundle', () => {
   beforeEach(() => timekeeper.freeze(START_TIME))
 
   afterEach(() => timekeeper.reset())
 
   test('provides declared interface', () => {
     const { store } = createStore()
-    expect(store.selectItemsOfTestResources).toBeDefined()
-    expect(store.doFetchItemOfTestResources).toBeDefined()
-    expect(store.doClearItemOfTestResources).toBeDefined()
-    expect(store.doMarkItemOfTestResourcesAsStale).toBeDefined()
-    expect(store.doAdjustItemOfTestResources).toBeDefined()
+
+    expect(store.selectTestResourceRaw).toBeDefined()
+    expect(store.selectTestResource).toBeDefined()
+    expect(store.selectTestResourceIsPresent).toBeDefined()
+    expect(store.selectTestResourceIsLoading).toBeDefined()
+    expect(store.selectTestResourceIsPendingForFetch).toBeDefined()
+    expect(store.selectTestResourceError).toBeDefined()
+    expect(store.selectTestResourceIsReadyForRetry).toBeDefined()
+    expect(store.selectTestResourceErrorIsPermanent).toBeDefined()
+    expect(store.selectTestResourceIsStale).toBeDefined()
+
+    expect(store.doFetchTestResource).toBeDefined()
+    expect(store.doClearTestResource).toBeDefined()
+    expect(store.doMarkTestResourceAsStale).toBeDefined()
+    expect(store.doAdjustTestResource).toBeDefined()
   })
 
   test('checks for required parameters', () => {
-    expect(() => createStore({ name: '' })).toThrow('createAsyncResourcesBundle: name parameter is required')
-    expect(() => createStore({ getPromise: '' })).toThrow(
-      'createAsyncResourcesBundle: getPromise parameter is required'
-    )
+    expect(() => createStore({ name: '' })).toThrow('createAsyncResourceBundle: name parameter is required')
+    expect(() => createStore({ getPromise: '' })).toThrow('createAsyncResourceBundle: getPromise parameter is required')
   })
 
   test('correctly handles item initial state', () => {
     const { store } = createStore()
 
-    assertItem(store, 1, {
+    assertItem(store, {
       data: undefined,
       isLoading: false,
       isPresent: false,
@@ -45,9 +53,9 @@ describe('createAsyncResourcesBundle', () => {
   test('correctly handles item loading state', () => {
     const { store } = createStore()
 
-    store.doFetchItemOfTestResources(1)
+    store.doFetchTestResource()
 
-    assertItem(store, 1, {
+    assertItem(store, {
       data: undefined,
       isLoading: true,
       isPresent: false,
@@ -62,12 +70,12 @@ describe('createAsyncResourcesBundle', () => {
   test('loads an item when requested', async () => {
     const { store, apiMock } = createStore()
 
-    store.doFetchItemOfTestResources(1)
+    store.doFetchTestResource()
 
     expect(apiMock.pendingQueueCount(1)).toBe(1)
     await apiMock.resolveFetchRequest(1)
 
-    assertItem(store, 1, {
+    assertItem(store, {
       data: 'One',
       isLoading: false,
       isPresent: true,
@@ -82,11 +90,11 @@ describe('createAsyncResourcesBundle', () => {
   test('correctly handles item error state', async () => {
     const { store, apiMock } = createStore()
 
-    store.doFetchItemOfTestResources(1)
+    store.doFetchTestResource()
 
     await apiMock.resolveFetchRequest(1, 'error!')
 
-    assertItem(store, 1, {
+    assertItem(store, {
       data: undefined,
       isLoading: false,
       isPresent: false,
@@ -101,13 +109,13 @@ describe('createAsyncResourcesBundle', () => {
   test('correctly handles error state on re-fetch', async () => {
     const { store, apiMock } = createStore()
 
-    store.doFetchItemOfTestResources(1)
+    store.doFetchTestResource()
     await apiMock.resolveFetchRequest(1)
 
-    store.doFetchItemOfTestResources(1)
+    store.doFetchTestResource()
     await apiMock.resolveFetchRequest(1, 'error!')
 
-    assertItem(store, 1, {
+    assertItem(store, {
       data: 'One',
       isLoading: false,
       isPresent: true,
@@ -122,13 +130,13 @@ describe('createAsyncResourcesBundle', () => {
   test('marks item for a retry after specified interval', async () => {
     const { store, apiMock } = createStore({ retryAfter: 10 })
 
-    store.doFetchItemOfTestResources(1)
+    store.doFetchTestResource()
 
     await apiMock.resolveFetchRequest(1, 'error!')
 
     await timeTravelTo(9, store)
 
-    assertItem(store, 1, {
+    assertItem(store, {
       data: undefined,
       isLoading: false,
       isPresent: false,
@@ -141,7 +149,7 @@ describe('createAsyncResourcesBundle', () => {
 
     await timeTravelTo(11, store)
 
-    assertItem(store, 1, {
+    assertItem(store, {
       data: undefined,
       isLoading: false,
       isPresent: false,
@@ -157,13 +165,13 @@ describe('createAsyncResourcesBundle', () => {
     const { store, apiMock } = createStore({ retryAfter: 10 })
     const error = { message: 'error!', permanent: true }
 
-    store.doFetchItemOfTestResources(1)
+    store.doFetchTestResource()
 
     await apiMock.resolveFetchRequest(1, error)
 
     await timeTravelTo(15, store)
 
-    assertItem(store, 1, {
+    assertItem(store, {
       data: undefined,
       isLoading: false,
       isPresent: false,
@@ -175,18 +183,16 @@ describe('createAsyncResourcesBundle', () => {
     })
   })
 
-  test('marks item as stale manually or by a timer', async () => {
+  test('marks item as stale manually', async () => {
     const { store, apiMock } = createStore({ staleAfter: 15 })
 
-    store.doFetchItemOfTestResources(1)
-    store.doFetchItemOfTestResources(2)
+    store.doFetchTestResource()
 
     await apiMock.resolveFetchRequest(1)
-    await apiMock.resolveFetchRequest(2)
 
-    store.doMarkItemOfTestResourcesAsStale(1)
+    store.doMarkTestResourceAsStale()
 
-    assertItem(store, 1, {
+    assertItem(store, {
       data: 'One',
       isLoading: false,
       isPresent: true,
@@ -197,8 +203,29 @@ describe('createAsyncResourcesBundle', () => {
       isReadyForRetry: false,
     })
 
-    assertItem(store, 2, {
-      data: 'Two',
+    await timeTravelTo(16, store)
+
+    assertItem(store, {
+      data: 'One',
+      isLoading: false,
+      isPresent: true,
+      isPendingForFetch: true,
+      error: null,
+      errorPermanent: false,
+      isStale: true,
+      isReadyForRetry: false,
+    })
+  })
+
+  test('marks item as stale with a timer', async () => {
+    const { store, apiMock } = createStore({ staleAfter: 15 })
+
+    store.doFetchTestResource()
+
+    await apiMock.resolveFetchRequest(1)
+
+    assertItem(store, {
+      data: 'One',
       isLoading: false,
       isPresent: true,
       isPendingForFetch: false,
@@ -210,19 +237,8 @@ describe('createAsyncResourcesBundle', () => {
 
     await timeTravelTo(16, store)
 
-    assertItem(store, 1, {
+    assertItem(store, {
       data: 'One',
-      isLoading: false,
-      isPresent: true,
-      isPendingForFetch: true,
-      error: null,
-      errorPermanent: false,
-      isStale: true,
-      isReadyForRetry: false,
-    })
-
-    assertItem(store, 2, {
-      data: 'Two',
       isLoading: false,
       isPresent: true,
       isPendingForFetch: true,
@@ -236,12 +252,12 @@ describe('createAsyncResourcesBundle', () => {
   test("clears an item from the store when it's expired", async () => {
     const { store, apiMock } = createStore({ expireAfter: 20 })
 
-    store.doFetchItemOfTestResources(1)
+    store.doFetchTestResource()
     await apiMock.resolveFetchRequest(1)
 
     await timeTravelTo(21, store)
 
-    assertItem(store, 1, {
+    assertItem(store, {
       data: undefined,
       isLoading: false,
       isPresent: false,
@@ -256,12 +272,12 @@ describe('createAsyncResourcesBundle', () => {
   test("does not expire items that don't have data", async () => {
     const { store, apiMock } = createStore({ expireAfter: 20 })
 
-    store.doFetchItemOfTestResources(2)
-    await apiMock.resolveFetchRequest(2, 'error!')
+    store.doFetchTestResource()
+    await apiMock.resolveFetchRequest(1, 'error!')
 
     await timeTravelTo(21, store)
 
-    assertItem(store, 2, {
+    assertItem(store, {
       data: undefined,
       isLoading: false,
       isPresent: false,
@@ -276,15 +292,15 @@ describe('createAsyncResourcesBundle', () => {
   test('expires items that are pending for a retry', async () => {
     const { store, apiMock } = createStore({ expireAfter: 20 })
 
-    store.doFetchItemOfTestResources(3)
-    await apiMock.resolveFetchRequest(3)
+    store.doFetchTestResource()
+    await apiMock.resolveFetchRequest(1)
 
-    store.doFetchItemOfTestResources(3)
-    await apiMock.resolveFetchRequest(3, 'error!')
+    store.doFetchTestResource()
+    await apiMock.resolveFetchRequest(1, 'error!')
 
     await timeTravelTo(21, store)
 
-    assertItem(store, 3, {
+    assertItem(store, {
       data: undefined,
       isLoading: false,
       isPresent: false,
@@ -299,12 +315,12 @@ describe('createAsyncResourcesBundle', () => {
   test('allows to clear an item from the store', async () => {
     const { store, apiMock } = createStore({ expireAfter: 20 })
 
-    store.doFetchItemOfTestResources(1)
+    store.doFetchTestResource()
     await apiMock.resolveFetchRequest(1)
 
-    store.doClearItemOfTestResources(3)
+    store.doClearTestResource()
 
-    assertItem(store, 3, {
+    assertItem(store, {
       data: undefined,
       isLoading: false,
       isPresent: false,
@@ -316,18 +332,13 @@ describe('createAsyncResourcesBundle', () => {
     })
   })
 
-  test('helper itemIsPendingForFetch respects online property', async () => {
-    expect(asyncResources.itemIsPendingForFetch(null)).toBe(true)
-    expect(asyncResources.itemIsPendingForFetch(null, { isOnline: false })).toBe(false)
-  })
-
   test('respects null as valid item data', async () => {
-    const { store, apiMock } = createStore()
+    const { store, apiMock } = createStore({}, 'nilItem')
 
-    store.doFetchItemOfTestResources('nilItem')
+    store.doFetchTestResource()
     await apiMock.resolveFetchRequest('nilItem')
 
-    assertItem(store, 'nilItem', {
+    assertItem(store, {
       data: null,
       isLoading: false,
       isPresent: true,
@@ -343,11 +354,11 @@ describe('createAsyncResourcesBundle', () => {
     test('replaces data when called with parameter', async () => {
       const { store, apiMock } = createStore()
 
-      store.doFetchItemOfTestResources(1)
+      store.doFetchTestResource()
       await apiMock.resolveFetchRequest(1)
 
-      store.doAdjustItemOfTestResources(1, 'foobar')
-      assertItem(store, 1, {
+      store.doAdjustTestResource('foobar')
+      assertItem(store, {
         data: 'foobar',
         isLoading: false,
         isPresent: true,
@@ -362,11 +373,11 @@ describe('createAsyncResourcesBundle', () => {
     test('accepts updater function as a parameter', async () => {
       const { store, apiMock } = createStore()
 
-      store.doFetchItemOfTestResources(1)
+      store.doFetchTestResource()
       await apiMock.resolveFetchRequest(1)
 
-      store.doAdjustItemOfTestResources(1, value => `${value}:${value}`)
-      assertItem(store, 1, {
+      store.doAdjustTestResource(value => `${value}:${value}`)
+      assertItem(store, {
         data: 'One:One',
         isLoading: false,
         isPresent: true,
@@ -381,8 +392,8 @@ describe('createAsyncResourcesBundle', () => {
     test('ignores adjustments when there is no data', async () => {
       const { store } = createStore()
 
-      store.doAdjustItemOfTestResources(1, 'XX')
-      assertItem(store, 1, {
+      store.doAdjustTestResource('XX')
+      assertItem(store, {
         data: undefined,
         isLoading: false,
         isPresent: false,
@@ -393,14 +404,14 @@ describe('createAsyncResourcesBundle', () => {
         isReadyForRetry: false,
       })
 
-      store.doAdjustItemOfTestResources(1, () => {
+      store.doAdjustTestResource(() => {
         throw new Error('I should not be called')
       })
     })
   })
 })
 
-function createStore(settings = {}) {
+function createStore(settings = {}, itemId = 1) {
   const apiMock = new MockApiClient()
 
   const apiMockBundle = {
@@ -408,9 +419,9 @@ function createStore(settings = {}) {
     getExtraArgs: () => ({ apiClient: apiMock }),
   }
 
-  const asyncResourceBundle = createAsyncResourcesBundle({
-    name: 'testResources',
-    getPromise: (itemId, { apiClient }) => apiClient.fetchItem(itemId),
+  const asyncResourceBundle = createAsyncResourceBundle({
+    name: 'testResource',
+    getPromise: ({ apiClient }) => apiClient.fetchItem(itemId),
     ...settings,
   })
 
@@ -433,29 +444,14 @@ function timeTravelTo(time, store) {
 
 function assertItem(
   store,
-  itemId,
   { data, isLoading, isStale, isReadyForRetry, isPresent, isPendingForFetch, error, errorPermanent }
 ) {
-  const items = store.selectItemsOfTestResources()
-  const item = items[itemId]
-
-  const {
-    getItemData,
-    itemIsLoading,
-    itemIsPresent,
-    itemIsPendingForFetch,
-    getItemError,
-    itemErrorIsPermanent,
-    itemIsStale,
-    itemIsReadyForRetry,
-  } = asyncResources
-
-  expect(getItemData(item)).toStrictEqual(data)
-  expect(itemIsLoading(item)).toBe(isLoading)
-  expect(itemIsPresent(item)).toBe(isPresent)
-  expect(itemIsPendingForFetch(item)).toBe(isPendingForFetch)
-  expect(getItemError(item)).toStrictEqual(error)
-  expect(itemErrorIsPermanent(item)).toBe(errorPermanent)
-  expect(itemIsStale(item)).toBe(isStale)
-  expect(itemIsReadyForRetry(item)).toBe(isReadyForRetry)
+  expect(store.selectTestResource()).toStrictEqual(data)
+  expect(store.selectTestResourceIsLoading()).toBe(isLoading)
+  expect(store.selectTestResourceIsPresent()).toBe(isPresent)
+  expect(store.selectTestResourceIsPendingForFetch()).toBe(isPendingForFetch)
+  expect(store.selectTestResourceError()).toStrictEqual(error)
+  expect(store.selectTestResourceErrorIsPermanent()).toBe(errorPermanent)
+  expect(store.selectTestResourceIsStale()).toBe(isStale)
+  expect(store.selectTestResourceIsReadyForRetry()).toBe(isReadyForRetry)
 }

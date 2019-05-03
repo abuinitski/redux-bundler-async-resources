@@ -1,6 +1,12 @@
 import { createSelector } from 'redux-bundler'
 
-import { itemErrorIsPermanent, itemIsReadyForRetry, itemIsStale } from './asyncResourcesHelpers'
+import {
+  itemErrorIsPermanent,
+  itemIsReadyForRetry,
+  itemIsStale,
+  getItemData,
+  itemIsPresent,
+} from './asyncResourcesHelpers'
 
 const Defaults = {
   name: undefined, // required
@@ -26,16 +32,9 @@ const BlankItemState = {
 }
 
 export default function createAsyncResourcesBundle(inputOptions) {
-  const {
-    name,
-    getPromise,
-    actionBaseType,
-    retryAfter,
-    expireAfter,
-    staleAfter,
-    persist,
-    clearExpired,
-  } = cookOptionsWithDefaults(inputOptions)
+  const { name, getPromise, actionBaseType, retryAfter, expireAfter, staleAfter, persist } = cookOptionsWithDefaults(
+    inputOptions
+  )
 
   const uCaseName = name.charAt(0).toUpperCase() + name.slice(1)
   const baseType = actionBaseType || toUnderscoreCase(name)
@@ -52,6 +51,7 @@ export default function createAsyncResourcesBundle(inputOptions) {
     STALE: `${baseType}_ITEM_STALE`,
     EXPIRED: `${baseType}_ITEM_EXPIRED`,
     READY_FOR_RETRY: `${baseType}_ITEM_READY_FOR_RETRY`,
+    ADJUSTED: `${baseType}_ADJUSTED`,
   }
 
   const doFetchItem = itemId => args => {
@@ -93,9 +93,9 @@ export default function createAsyncResourcesBundle(inputOptions) {
 
   const doClearItem = itemId => ({ type: actions.CLEARED, itemId })
 
-  const doExpireItem = itemId => ({ type: actions.EXPIRED, itemId })
-
   const doMarkItemAsStale = itemId => ({ type: actions.STALE, itemId })
+
+  const doAdjustItem = (itemId, payload) => ({ type: actions.ADJUSTED, itemId, payload })
 
   const rawSelectorName = `select${uCaseName}Raw`
 
@@ -138,14 +138,24 @@ export default function createAsyncResourcesBundle(inputOptions) {
       }
 
       if (type === actions.STALE) {
-        if (clearExpired) {
-          return updateItem(state, itemId, null)
-        }
         return updateItem(state, itemId, { isStale: true })
       }
 
       if (type === actions.READY_FOR_RETRY) {
         return updateItem(state, itemId, { isReadyForRetry: true })
+      }
+
+      if (type === actions.ADJUSTED) {
+        const item = state.items[itemId]
+        if (!itemIsPresent(item)) {
+          return state
+        }
+
+        if (typeof payload === 'function') {
+          return updateItem(state, itemId, { data: payload(getItemData(item)) })
+        }
+
+        return updateItem(state, itemId, { data: payload })
       }
 
       return state
@@ -162,9 +172,9 @@ export default function createAsyncResourcesBundle(inputOptions) {
 
     [`doClearItemOf${uCaseName}`]: doClearItem,
 
-    [`doExpireItemOf${uCaseName}`]: doExpireItem,
-
     [`doMarkItemOf${uCaseName}AsStale`]: doMarkItemAsStale,
+
+    [`doAdjustItemOf${uCaseName}`]: doAdjustItem,
 
     persistActions: (persist && [actions.FINISHED, actions.CLEARED, actions.EXPIRED]) || null,
   }
@@ -254,7 +264,7 @@ function cookOptionsWithDefaults(options) {
     }
   }
 
-  return Object.assign({}, Defaults, options)
+  return { ...Defaults, ...options }
 }
 
 function selectEarliestItem(items, timePropName, predicate) {
