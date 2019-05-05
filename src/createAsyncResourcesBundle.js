@@ -7,6 +7,7 @@ import {
   getItemData,
   itemIsPresent,
 } from './asyncResourcesHelpers'
+import makeAsyncResourcesBundleKeys from './makeAsyncResourcesBundleKeys'
 
 const Defaults = {
   name: undefined, // required
@@ -29,6 +30,7 @@ const BlankItemState = {
   errorAt: null,
   errorPermanent: false,
   isReadyForRetry: false,
+  retryAt: null,
 }
 
 export default function createAsyncResourcesBundle(inputOptions) {
@@ -36,12 +38,13 @@ export default function createAsyncResourcesBundle(inputOptions) {
     inputOptions
   )
 
-  const uCaseName = name.charAt(0).toUpperCase() + name.slice(1)
   const baseType = actionBaseType || toUnderscoreCase(name)
 
   const expireEnabled = expireAfter && expireAfter !== Infinity
   const staleEnabled = staleAfter && staleAfter !== Infinity
   const retryEnabled = retryAfter && retryAfter !== Infinity
+
+  const { selectors, actionCreators, reactors } = makeAsyncResourcesBundleKeys(name)
 
   const actions = {
     STARTED: `${baseType}_FETCH_STARTED`,
@@ -85,9 +88,7 @@ export default function createAsyncResourcesBundle(inputOptions) {
       items: nextItems,
       nextStaleItem: staleEnabled && selectEarliestItem(nextItems, 'dataAt', item => !itemIsStale(item)),
       nextExpiringItem: expireEnabled && selectEarliestItem(nextItems, 'dataAt'),
-      nextRetryingItem:
-        retryEnabled &&
-        selectEarliestItem(nextItems, 'errorAt', item => !itemIsReadyForRetry(item) && !itemErrorIsPermanent(item)),
+      nextRetryingItem: retryEnabled && selectEarliestItem(nextItems, 'retryAt', item => !itemIsReadyForRetry(item)),
     }
   }
 
@@ -96,8 +97,6 @@ export default function createAsyncResourcesBundle(inputOptions) {
   const doMarkItemAsStale = itemId => ({ type: actions.STALE, itemId })
 
   const doAdjustItem = (itemId, payload) => ({ type: actions.ADJUSTED, itemId, payload })
-
-  const rawSelectorName = `select${uCaseName}Raw`
 
   const bundle = {
     name,
@@ -119,17 +118,22 @@ export default function createAsyncResourcesBundle(inputOptions) {
           errorAt: null,
           errorPermanent: false,
           isReadyForRetry: false,
+          retryAt: null,
         })
       }
 
       if (type === actions.FAILED) {
+        const errorAt = Date.now()
+        const errorPermanent = Boolean(payload.permanent)
+
         return updateItem(state, itemId, {
           isLoading: false,
 
           error: payload,
-          errorAt: Date.now(),
-          errorPermanent: Boolean(payload.permanent),
+          errorAt,
+          errorPermanent,
           isReadyForRetry: false,
+          retryAt: (retryEnabled && !errorPermanent && errorAt + retryAfter) || null,
         })
       }
 
@@ -161,34 +165,32 @@ export default function createAsyncResourcesBundle(inputOptions) {
       return state
     },
 
-    [rawSelectorName]: state => state[name],
+    [selectors.raw]: state => state[name],
 
-    [`selectItemsOf${uCaseName}`]: createSelector(
-      rawSelectorName,
+    [selectors.items]: createSelector(
+      selectors.raw,
       state => state.items
     ),
 
-    [`doFetchItemOf${uCaseName}`]: doFetchItem,
+    [actionCreators.doFetch]: doFetchItem,
 
-    [`doClearItemOf${uCaseName}`]: doClearItem,
+    [actionCreators.doClear]: doClearItem,
 
-    [`doMarkItemOf${uCaseName}AsStale`]: doMarkItemAsStale,
+    [actionCreators.doMarkAsStale]: doMarkItemAsStale,
 
-    [`doAdjustItemOf${uCaseName}`]: doAdjustItem,
+    [actionCreators.doAdjust]: doAdjustItem,
 
     persistActions: (persist && [actions.FINISHED, actions.CLEARED, actions.EXPIRED]) || null,
   }
 
   if (expireEnabled) {
-    const nextExpiringItemSelectorName = `selectNextExpiringItemOf${uCaseName}`
-
-    bundle[nextExpiringItemSelectorName] = createSelector(
-      rawSelectorName,
+    bundle[selectors.nextExpiringItem] = createSelector(
+      selectors.raw,
       state => state.nextExpiringItem
     )
 
-    bundle[`react${uCaseName}ShouldExpire`] = createSelector(
-      nextExpiringItemSelectorName,
+    bundle[reactors.shouldExpire] = createSelector(
+      selectors.nextExpiringItem,
       'selectAppTime',
       (nextExpiringItem, appTime) => {
         if (!nextExpiringItem) {
@@ -203,22 +205,20 @@ export default function createAsyncResourcesBundle(inputOptions) {
   }
 
   if (retryEnabled) {
-    const nextRetryingItemSelectorName = `selectNextRetryingItemOf${uCaseName}`
-
-    bundle[nextRetryingItemSelectorName] = createSelector(
-      rawSelectorName,
+    bundle[selectors.nextRetryingItem] = createSelector(
+      selectors.raw,
       state => state.nextRetryingItem
     )
 
-    bundle[`reactItemOf${uCaseName}ShouldRetry`] = createSelector(
-      nextRetryingItemSelectorName,
+    bundle[reactors.shouldRetry] = createSelector(
+      selectors.nextRetryingItem,
       'selectAppTime',
       (nextRetryingItem, appTime) => {
         if (!nextRetryingItem) {
           return false
         }
 
-        if (appTime - nextRetryingItem.errorAt > retryAfter) {
+        if (appTime >= nextRetryingItem.retryAt) {
           return { type: actions.READY_FOR_RETRY, itemId: nextRetryingItem.id }
         }
       }
@@ -226,15 +226,13 @@ export default function createAsyncResourcesBundle(inputOptions) {
   }
 
   if (staleEnabled) {
-    const nextStaleItemSelectorName = `selectNextStaleItemOf${uCaseName}`
-
-    bundle[nextStaleItemSelectorName] = createSelector(
-      rawSelectorName,
+    bundle[selectors.nextStaleItem] = createSelector(
+      selectors.raw,
       state => state.nextStaleItem
     )
 
-    bundle[`reactItemOf${uCaseName}ShouldBecomeStale`] = createSelector(
-      nextStaleItemSelectorName,
+    bundle[reactors.shouldBecomeStale] = createSelector(
+      selectors.nextStaleItem,
       'selectAppTime',
       (nextStaleItem, appTime) => {
         if (!nextStaleItem) {

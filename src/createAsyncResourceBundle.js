@@ -1,5 +1,7 @@
 import { createSelector } from 'redux-bundler'
 
+import makeAsyncResourceBundleKeys from './makeAsyncResourceBundleKeys'
+
 const Defaults = {
   name: undefined, // required
   getPromise: undefined, // required
@@ -28,12 +30,13 @@ export default function createAsyncResourceBundle(inputOptions) {
     inputOptions
   )
 
-  const uCaseName = name.charAt(0).toUpperCase() + name.slice(1)
   const baseType = actionBaseType || toUnderscoreCase(name)
 
   const expireEnabled = expireAfter && expireAfter !== Infinity
   const staleEnabled = staleAfter && staleAfter !== Infinity
   const retryEnabled = retryAfter && retryAfter !== Infinity
+
+  const { selectors, actionCreators, reactors } = makeAsyncResourceBundleKeys(name)
 
   const actions = {
     STARTED: `${baseType}_FETCH_STARTED`,
@@ -45,8 +48,6 @@ export default function createAsyncResourceBundle(inputOptions) {
     READY_FOR_RETRY: `${baseType}_READY_FOR_RETRY`,
     ADJUSTED: `${baseType}_ADJUSTED`,
   }
-
-  const rawSelectorName = `select${uCaseName}Raw`
 
   const bundle = {
     name,
@@ -128,45 +129,55 @@ export default function createAsyncResourceBundle(inputOptions) {
       return state
     },
 
-    [rawSelectorName]: state => state[name],
+    [selectors.raw]: state => state[name],
 
-    [`select${uCaseName}`]: createSelector(
-      rawSelectorName,
+    [selectors.data]: createSelector(
+      selectors.raw,
       ({ data }) => data
     ),
 
-    [`select${uCaseName}IsPresent`]: createSelector(
-      rawSelectorName,
+    [selectors.isPresent]: createSelector(
+      selectors.raw,
       ({ dataAt }) => Boolean(dataAt)
     ),
 
-    [`select${uCaseName}IsLoading`]: createSelector(
-      rawSelectorName,
+    [selectors.isLoading]: createSelector(
+      selectors.raw,
       ({ isLoading }) => isLoading
     ),
 
-    [`select${uCaseName}Error`]: createSelector(
-      rawSelectorName,
+    [selectors.error]: createSelector(
+      selectors.raw,
       ({ error }) => error
     ),
 
-    [`select${uCaseName}IsReadyForRetry`]: createSelector(
-      rawSelectorName,
+    [selectors.isReadyForRetry]: createSelector(
+      selectors.raw,
       ({ isReadyForRetry }) => isReadyForRetry
     ),
 
-    [`select${uCaseName}ErrorIsPermanent`]: createSelector(
-      rawSelectorName,
+    [selectors.retryAt]: createSelector(
+      selectors.raw,
+      ({ errorAt, errorPermanent }) => {
+        if (!errorAt || errorPermanent || !retryEnabled) {
+          return null
+        }
+        return errorAt + retryAfter
+      }
+    ),
+
+    [selectors.errorIsPermanent]: createSelector(
+      selectors.raw,
       ({ errorPermanent }) => errorPermanent
     ),
 
-    [`select${uCaseName}IsStale`]: createSelector(
-      rawSelectorName,
+    [selectors.isStale]: createSelector(
+      selectors.raw,
       ({ isStale }) => isStale
     ),
 
-    [`select${uCaseName}IsPendingForFetch`]: createSelector(
-      rawSelectorName,
+    [selectors.isPendingForFetch]: createSelector(
+      selectors.raw,
       ({ isLoading, errorAt, isReadyForRetry, isStale, dataAt }) => {
         if (isLoading) {
           return false
@@ -180,7 +191,7 @@ export default function createAsyncResourceBundle(inputOptions) {
       }
     ),
 
-    [`doFetch${uCaseName}`]: () => thunkArgs => {
+    [actionCreators.doFetch]: () => thunkArgs => {
       const { dispatch } = thunkArgs
       dispatch({ type: actions.STARTED })
 
@@ -194,18 +205,18 @@ export default function createAsyncResourceBundle(inputOptions) {
       )
     },
 
-    [`doClear${uCaseName}`]: () => ({ type: actions.CLEARED }),
+    [actionCreators.doClear]: () => ({ type: actions.CLEARED }),
 
-    [`doMark${uCaseName}AsStale`]: () => ({ type: actions.STALE }),
+    [actionCreators.doMarkAsStale]: () => ({ type: actions.STALE }),
 
-    [`doAdjust${uCaseName}`]: payload => ({ type: actions.ADJUSTED, payload }),
+    [actionCreators.doAdjust]: payload => ({ type: actions.ADJUSTED, payload }),
 
     persistActions: (persist && [actions.FINISHED, actions.CLEARED, actions.EXPIRED]) || null,
   }
 
   if (expireEnabled) {
-    bundle[`react${uCaseName}ShouldExpire`] = createSelector(
-      rawSelectorName,
+    bundle[reactors.shouldExpire] = createSelector(
+      selectors.raw,
       'selectAppTime',
       ({ dataAt }, appTime) => {
         if (dataAt && appTime - dataAt > expireAfter) {
@@ -216,11 +227,12 @@ export default function createAsyncResourceBundle(inputOptions) {
   }
 
   if (retryEnabled) {
-    bundle[`react${uCaseName}ShouldRetry`] = createSelector(
-      rawSelectorName,
+    bundle[reactors.shouldRetry] = createSelector(
+      selectors.retryAt,
+      selectors.isReadyForRetry,
       'selectAppTime',
-      ({ errorAt, errorPermanent, isReadyForRetry }, appTime) => {
-        if (!isReadyForRetry && errorAt && !errorPermanent && appTime - errorAt > retryAfter) {
+      (retryAt, isReadyForRetry, appTime) => {
+        if (!isReadyForRetry && retryAt && appTime >= retryAt) {
           return { type: actions.READY_FOR_RETRY }
         }
       }
@@ -228,8 +240,8 @@ export default function createAsyncResourceBundle(inputOptions) {
   }
 
   if (staleEnabled) {
-    bundle[`react${uCaseName}ShouldBecomeStale`] = createSelector(
-      rawSelectorName,
+    bundle[reactors.shouldBecomeStale] = createSelector(
+      selectors.raw,
       'selectAppTime',
       ({ dataAt, isStale }, appTime) => {
         if (!isStale && dataAt && appTime - dataAt > staleAfter) {

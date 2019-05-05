@@ -30,6 +30,13 @@ export function itemIsReadyForRetry(item) {
   return Boolean(item && item.isReadyForRetry)
 }
 
+export function itemRetryAt(item) {
+  if (!item || !item.retryAt) {
+    return null
+  }
+  return item.retryAt
+}
+
 export function getItemData(item) {
   if (!itemIsPresent(item)) {
     return undefined

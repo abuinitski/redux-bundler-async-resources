@@ -5,6 +5,7 @@ import MockApiClient from '../__mocks__/MockApiClient'
 import { createAsyncResourcesBundle, asyncResources } from '../index'
 
 const START_TIME = 1000
+const DEFAULT_RETRY_IN = 60000
 
 describe('createAsyncResourcesBundle', () => {
   beforeEach(() => timekeeper.freeze(START_TIME))
@@ -39,6 +40,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: false,
       isStale: false,
       isReadyForRetry: false,
+      retryAt: null,
     })
   })
 
@@ -56,6 +58,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: false,
       isStale: false,
       isReadyForRetry: false,
+      retryAt: null,
     })
   })
 
@@ -76,6 +79,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: false,
       isStale: false,
       isReadyForRetry: false,
+      retryAt: null,
     })
   })
 
@@ -95,6 +99,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: false,
       isStale: false,
       isReadyForRetry: false,
+      retryAt: START_TIME + DEFAULT_RETRY_IN,
     })
   })
 
@@ -116,6 +121,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: false,
       isStale: false,
       isReadyForRetry: false,
+      retryAt: START_TIME + DEFAULT_RETRY_IN,
     })
   })
 
@@ -137,6 +143,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: false,
       isStale: false,
       isReadyForRetry: false,
+      retryAt: START_TIME + 10,
     })
 
     await timeTravelTo(11, store)
@@ -150,6 +157,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: false,
       isStale: false,
       isReadyForRetry: true,
+      retryAt: START_TIME + 10,
     })
   })
 
@@ -172,6 +180,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: true,
       isStale: false,
       isReadyForRetry: false,
+      retryAt: null,
     })
   })
 
@@ -195,6 +204,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: false,
       isStale: true,
       isReadyForRetry: false,
+      retryAt: null,
     })
 
     assertItem(store, 2, {
@@ -206,6 +216,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: false,
       isStale: false,
       isReadyForRetry: false,
+      retryAt: null,
     })
 
     await timeTravelTo(16, store)
@@ -219,6 +230,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: false,
       isStale: true,
       isReadyForRetry: false,
+      retryAt: null,
     })
 
     assertItem(store, 2, {
@@ -230,6 +242,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: false,
       isStale: true,
       isReadyForRetry: false,
+      retryAt: null,
     })
   })
 
@@ -250,6 +263,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: false,
       isStale: false,
       isReadyForRetry: false,
+      retryAt: null,
     })
   })
 
@@ -270,6 +284,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: false,
       isStale: false,
       isReadyForRetry: false,
+      retryAt: START_TIME + DEFAULT_RETRY_IN,
     })
   })
 
@@ -293,6 +308,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: false,
       isStale: false,
       isReadyForRetry: false,
+      retryAt: null,
     })
   })
 
@@ -313,6 +329,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: false,
       isStale: false,
       isReadyForRetry: false,
+      retryAt: null,
     })
   })
 
@@ -336,6 +353,7 @@ describe('createAsyncResourcesBundle', () => {
       errorPermanent: false,
       isStale: false,
       isReadyForRetry: false,
+      retryAt: null,
     })
   })
 
@@ -356,6 +374,7 @@ describe('createAsyncResourcesBundle', () => {
         errorPermanent: false,
         isStale: false,
         isReadyForRetry: false,
+        retryAt: null,
       })
     })
 
@@ -375,6 +394,7 @@ describe('createAsyncResourcesBundle', () => {
         errorPermanent: false,
         isStale: false,
         isReadyForRetry: false,
+        retryAt: null,
       })
     })
 
@@ -391,6 +411,7 @@ describe('createAsyncResourcesBundle', () => {
         errorPermanent: false,
         isStale: false,
         isReadyForRetry: false,
+        retryAt: null,
       })
 
       store.doAdjustItemOfTestResources(1, () => {
@@ -434,7 +455,7 @@ function timeTravelTo(time, store) {
 function assertItem(
   store,
   itemId,
-  { data, isLoading, isStale, isReadyForRetry, isPresent, isPendingForFetch, error, errorPermanent }
+  { data, isLoading, isStale, isReadyForRetry, retryAt, isPresent, isPendingForFetch, error, errorPermanent }
 ) {
   const items = store.selectItemsOfTestResources()
   const item = items[itemId]
@@ -448,6 +469,7 @@ function assertItem(
     itemErrorIsPermanent,
     itemIsStale,
     itemIsReadyForRetry,
+    itemRetryAt,
   } = asyncResources
 
   expect(getItemData(item)).toStrictEqual(data)
@@ -458,4 +480,5 @@ function assertItem(
   expect(itemErrorIsPermanent(item)).toBe(errorPermanent)
   expect(itemIsStale(item)).toBe(isStale)
   expect(itemIsReadyForRetry(item)).toBe(isReadyForRetry)
+  expect(itemRetryAt(item)).toBe(retryAt)
 }

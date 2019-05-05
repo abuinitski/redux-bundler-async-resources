@@ -21,6 +21,7 @@ describe('createAsyncResourceBundle', () => {
     expect(store.selectTestResourceIsPendingForFetch).toBeDefined()
     expect(store.selectTestResourceError).toBeDefined()
     expect(store.selectTestResourceIsReadyForRetry).toBeDefined()
+    expect(store.selectTestResourceRetryAt).toBeDefined()
     expect(store.selectTestResourceErrorIsPermanent).toBeDefined()
     expect(store.selectTestResourceIsStale).toBeDefined()
 

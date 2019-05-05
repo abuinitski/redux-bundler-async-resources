@@ -2,7 +2,7 @@
 
 ![](https://img.shields.io/npm/v/redux-bundler-async-resources.svg) ![](https://img.shields.io/npm/dt/redux-bundler-async-resources.svg) [![CircleCI](https://circleci.com/gh/abuinitski/redux-bundler-hook/tree/master.svg?style=svg)](https://circleci.com/gh/abuinitski/redux-bundler-async-resources/tree/master)
 
-A bundle factory for [redux-bundler](https://reduxbundler.com/) that clearly manages remote resources. 
+A bundle factory for [redux-bundler](https://reduxbundler.com/) that clearly manages remote resources.
 
 ## Motivation
 
@@ -87,13 +87,14 @@ export default function HotCarDeals() {
 
 - `select${Name}Raw` – just get raw bundle state, to be used internally
 - `select${Name}` – returns item data or `undefined` if there's nothing there
-- `select${Name}IsPresent` – returns `true` if there is something to be returned by `select${Name}` (i.e. there was at least one successful load before) 
+- `select${Name}IsPresent` – returns `true` if there is something to be returned by `select${Name}` (i.e. there was at least one successful load before)
 - `select${Name}IsLoading` – returns `true` if item is currently loading (irrelevant of whether there is some data or not in `select${Name}`)
-– `select${Name}IsPendingForFetch` – returns `true` if resource thinks it should load now (i.e. pristine or stale or there was an error and `retryAfter` has passed)
+- `select${Name}IsPendingForFetch` – returns `true` if resource thinks it should load now (i.e. pristine or stale or there was an error and `retryAfter` has passed)
 - `select${Name}Error` – returns whatever `gerPromise` rejected with previously; reset to `null` or new error value after next load is finished
 - `select${Name}IsReadyForRetry` – returns `true` if previous fetch resulted in error and `retryAfter` has passed
-– `select${Name}ErrorIsPermanent` – returns `true` if previous fetch resulted in error and error object had `permanent` field on
-– `select${Name}IsStale` – returns `true` if item is stale (manually or respective interval has passed)
+- `select${Name}RetryAt` – returns `null` or a timestamp at which item fetch will be retried
+- `select${Name}ErrorIsPermanent` – returns `true` if previous fetch resulted in error and error object had `permanent` field on
+- `select${Name}IsStale` – returns `true` if item is stale (manually or respective interval has passed)
 
 #### Action Creators
 
@@ -233,5 +234,82 @@ export default function CurrentCarReviews() {
   - `isOnline` is an optional check to not even try loading anything if device is offline; may omit if online check is not needed
 - `getItemError(item)` – something that `getPromise` previously rejected with. Will reset on when next fetch will finish (or fail).
 - `itemIsReadyForRetry(item)` – `true` if this item contains an error, and `retryAfter` has passed.
+- `itemRetryAt(item)` – returns a timestamp at which item fetch will be retried (if it will be, otherwise `null`)
 - `itemErrorIsPermanent(item)` – `true` if `getPromise` has rejected with something that had `persistent: true` property in it. Retry behavior will be disabled in this case.
 - `itemIsStale(item)` – `true` if this item is stale (manually or because `staleAfter` has passed since last successful fetch)
+
+### Naming helpers
+
+In (rare) cases when you need to async resources in a resource-agnostic manner, there are two helpers available: `makeAsyncResourceBundleKeys` and `makeAsyncResourcesBundleKeys` for it's multi-item counterpart.
+
+Calling this with a resource `name` will return you an object of the following shape (assuming resource name `"myResource"`):
+
+```json
+{
+  "selectors": {
+    "raw": "selectMyResourceRaw",
+    "data": "selectMyResource",
+    "isLoading": "selectMyResourceIsLoading",
+    "isPresent": "selectMyResourceIsPresent",
+    "error": "selectMyResourceError",
+    "isReadyForRetry": "selectMyResourceIsReadyForRetry",
+    "errorIsPermanent": "selectMyResourceErrorIsPermanent",
+    "isStale": "selectMyResourceIsStale",
+    "isPendingForFetch": "selectMyResourceIsPendingForFetch"
+  },
+  "keys": {
+    "raw": "myResourceRaw",
+    "data": "myResource",
+    "isLoading": "myResourceIsLoading",
+    "isPresent": "myResourceIsPresent",
+    "error": "myResourceError",
+    "isReadyForRetry": "myResourceIsReadyForRetry",
+    "errorIsPermanent": "myResourceErrorIsPermanent",
+    "isStale": "myResourceIsStale",
+    "isPendingForFetch": "myResourceIsPendingForFetch"
+  },
+  "actionCreators": {
+    "doFetch": "doFetchMyResource",
+    "doClear": "doClearMyResource",
+    "doMarkAsStale": "doMarkMyResourceAsStale",
+    "doAdjust": "doAdjustMyResource"
+  },
+  "reactors": {
+    "shouldExpire": "reactMyResourceShouldExpire",
+    "shouldRetry": "reactMyResourceShouldRetry",
+    "shouldBecomeStale": "reactMyResourceShouldBecomeStale"
+  }
+}
+```
+
+... and for `makeAsyncResourcesBundleKeys` it will be:
+
+```json
+{
+  "selectors": {
+    "raw": "selectMyResourcesRaw",
+    "items": "selectItemsOfMyResources",
+    "nextExpiringItem": "selectNextExpiringItemOfMyResources",
+    "nextRetryingItem": "selectNextRetryingItemOfMyResources",
+    "nextStaleItem": "selectNextStaleItemOfMyResources"
+  },
+  "keys": {
+    "raw": "myResourcesRaw",
+    "items": "itemsOfMyResources",
+    "nextExpiringItem": "nextExpiringItemOfMyResources",
+    "nextRetryingItem": "nextRetryingItemOfMyResources",
+    "nextStaleItem": "nextStaleItemOfMyResources"
+  },
+  "actionCreators": {
+    "doFetch": "doFetchItemOfMyResources",
+    "doClear": "doClearItemOfMyResources",
+    "doMarkAsStale": "doMarkItemOfMyResourcesAsStale",
+    "doAdjust": "doAdjustItemOfMyResources"
+  },
+  "reactors": {
+    "shouldExpire": "reactItemOfMyResourcesShouldExpire",
+    "shouldRetry": "reactItemOfMyResourcesShouldRetry",
+    "shouldBecomeStale": "reactItemOfMyResourcesShouldBecomeStale"
+  }
+}
+```
