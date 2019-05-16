@@ -1,10 +1,13 @@
+import nameToCapitalizedCase from './common/nameToCapitalizedCase'
+
 export default function makeAsyncResourceBundleKeys(name) {
-  const upName = name.charAt(0).toUpperCase() + name.slice(1)
+  const upName = nameToCapitalizedCase(name)
 
   return {
     selectors: {
       raw: `select${upName}Raw`,
       data: `select${upName}`,
+      dependencyValues: `select${upName}DependencyValues`,
       isLoading: `select${upName}IsLoading`,
       isPresent: `select${upName}IsPresent`,
       error: `select${upName}Error`,
@@ -13,6 +16,7 @@ export default function makeAsyncResourceBundleKeys(name) {
       errorIsPermanent: `select${upName}ErrorIsPermanent`,
       isStale: `select${upName}IsStale`,
       isPendingForFetch: `select${upName}IsPendingForFetch`,
+      isDependencyResolved: `select${upName}IsDependencyResolved`,
     },
     keys: {
       raw: `${name}Raw`,
@@ -25,6 +29,7 @@ export default function makeAsyncResourceBundleKeys(name) {
       errorIsPermanent: `${name}ErrorIsPermanent`,
       isStale: `${name}IsStale`,
       isPendingForFetch: `${name}IsPendingForFetch`,
+      isDependencyResolved: `${name}IsDependencyResolved`,
     },
     actionCreators: {
       doFetch: `doFetch${upName}`,
@@ -36,6 +41,7 @@ export default function makeAsyncResourceBundleKeys(name) {
       shouldExpire: `react${upName}ShouldExpire`,
       shouldRetry: `react${upName}ShouldRetry`,
       shouldBecomeStale: `react${upName}ShouldBecomeStale`,
+      shouldUpdateDependencyValues: `react${upName}ShouldUpdateDependencyValues`,
     },
   }
 }

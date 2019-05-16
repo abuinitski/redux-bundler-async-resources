@@ -1,6 +1,8 @@
 import { createSelector } from 'redux-bundler'
 
 import makeAsyncResourceBundleKeys from './makeAsyncResourceBundleKeys'
+import keyToSelector from './common/keyToSelector'
+import { nameToUnderscoreCase } from './common/nameToUnderscoreCase'
 
 const Defaults = {
   name: undefined, // required
@@ -10,6 +12,7 @@ const Defaults = {
   staleAfter: 900000, // fifteen minutes
   expireAfter: Infinity,
   persist: true,
+  dependencyKey: null,
 }
 
 const InitialState = {
@@ -19,6 +22,8 @@ const InitialState = {
   dataAt: null,
   isStale: false,
 
+  dependencyValues: null,
+
   error: null,
   errorAt: null,
   errorPermanent: false,
@@ -26,15 +31,25 @@ const InitialState = {
 }
 
 export default function createAsyncResourceBundle(inputOptions) {
-  const { name, getPromise, actionBaseType, retryAfter, expireAfter, staleAfter, persist } = cookOptionsWithDefaults(
-    inputOptions
-  )
+  const {
+    name,
+    getPromise,
+    actionBaseType,
+    retryAfter,
+    expireAfter,
+    staleAfter,
+    persist,
+    dependencyKeys,
+    stalingDependencyKeys,
+    blankingDependencyKeys,
+  } = cookOptionsWithDefaults(inputOptions)
 
-  const baseType = actionBaseType || toUnderscoreCase(name)
+  const baseType = actionBaseType || nameToUnderscoreCase(name)
 
   const expireEnabled = expireAfter && expireAfter !== Infinity
   const staleEnabled = staleAfter && staleAfter !== Infinity
   const retryEnabled = retryAfter && retryAfter !== Infinity
+  const dependenciesEnabled = Boolean(dependencyKeys)
 
   const { selectors, actionCreators, reactors } = makeAsyncResourceBundleKeys(name)
 
@@ -47,6 +62,7 @@ export default function createAsyncResourceBundle(inputOptions) {
     EXPIRED: `${baseType}_EXPIRED`,
     READY_FOR_RETRY: `${baseType}_READY_FOR_RETRY`,
     ADJUSTED: `${baseType}_ADJUSTED`,
+    DEPENDENCIES_CHANGED: `${baseType}_DEPENDENCIES_CHANGED`,
   }
 
   const bundle = {
@@ -126,6 +142,26 @@ export default function createAsyncResourceBundle(inputOptions) {
         }
       }
 
+      if (type === actions.DEPENDENCIES_CHANGED) {
+        const stale =
+          Boolean(state.dependencyValues) &&
+          (stalingDependencyKeys.size > 0 &&
+            changedKeys(state.dependencyValues, payload).every(key => stalingDependencyKeys.has(key)))
+
+        if (stale) {
+          return {
+            ...state,
+            isStale: true,
+            dependencyValues: payload,
+          }
+        } else {
+          return {
+            ...InitialState,
+            dependencyValues: payload,
+          }
+        }
+      }
+
       return state
     },
 
@@ -177,25 +213,38 @@ export default function createAsyncResourceBundle(inputOptions) {
     ),
 
     [selectors.isPendingForFetch]: createSelector(
-      selectors.raw,
-      ({ isLoading, errorAt, isReadyForRetry, isStale, dataAt }) => {
-        if (isLoading) {
+      selectors.error,
+      selectors.isPresent,
+      selectors.isStale,
+      selectors.isLoading,
+      selectors.isReadyForRetry,
+      selectors.isDependencyResolved,
+      (error, isPresent, isStale, isLoading, isReadyForRetry, isDependencyResolved) => {
+        if (!isDependencyResolved || isLoading) {
           return false
         }
 
-        if (errorAt) {
+        if (error) {
           return isReadyForRetry
         }
 
-        return isStale || !dataAt
+        return isStale || !isPresent
       }
     ),
 
     [actionCreators.doFetch]: () => thunkArgs => {
-      const { dispatch } = thunkArgs
+      const { dispatch, store } = thunkArgs
       dispatch({ type: actions.STARTED })
 
-      return getPromise(thunkArgs).then(
+      let getPromiseArgs = thunkArgs
+      if (dependenciesEnabled) {
+        getPromiseArgs = {
+          ...getPromiseArgs,
+          ...store[selectors.dependencyValues](),
+        }
+      }
+
+      return getPromise(getPromiseArgs).then(
         payload => {
           dispatch({ type: actions.FINISHED, payload })
         },
@@ -251,12 +300,52 @@ export default function createAsyncResourceBundle(inputOptions) {
     )
   }
 
+  if (dependenciesEnabled) {
+    bundle[selectors.isDependencyResolved] = createSelector(
+      selectors.dependencyValues,
+      dependencyValues =>
+        Boolean(dependencyValues) &&
+        dependencyKeys.every(key => {
+          const value = dependencyValues[key]
+          return blankingDependencyKeys.has(key) || (value !== null && value !== undefined)
+        })
+    )
+
+    bundle[selectors.dependencyValues] = createSelector(
+      selectors.raw,
+      ({ dependencyValues }) => dependencyValues
+    )
+
+    bundle[reactors.shouldUpdateDependencyValues] = createSelector(
+      selectors.dependencyValues,
+      ...dependencyKeys.map(keyToSelector),
+      (dependencyValues, ...nextDependencyValuesList) => {
+        const dependenciesChanged =
+          !dependencyValues ||
+          dependencyKeys.some((key, keyIndex) => dependencyValues[key] !== nextDependencyValuesList[keyIndex])
+
+        if (dependenciesChanged) {
+          const payload = nextDependencyValuesList.reduce(
+            (hash, value, index) => ({
+              ...hash,
+              [dependencyKeys[index]]: value,
+            }),
+            {}
+          )
+          return { type: actions.DEPENDENCIES_CHANGED, payload }
+        }
+      }
+    )
+  } else {
+    bundle[selectors.isDependencyResolved] = () => true
+  }
+
   return bundle
 }
 
-function cookOptionsWithDefaults(options) {
+function cookOptionsWithDefaults(inputOptions) {
   if (process.env.NODE_ENV !== 'production') {
-    const { name, getPromise } = options
+    const { name, getPromise } = inputOptions
 
     if (!name) {
       throw new Error('createAsyncResourceBundle: name parameter is required')
@@ -267,12 +356,47 @@ function cookOptionsWithDefaults(options) {
     }
   }
 
-  return Object.assign({}, Defaults, options)
+  const { dependencyKey, ...options } = { ...Defaults, ...inputOptions }
+
+  if (Array.isArray(dependencyKey) && dependencyKey.length) {
+    options.dependencyKeys = dependencyKey
+  } else if (dependencyKey) {
+    options.dependencyKeys = [dependencyKey]
+  } else {
+    delete options.dependencyKeys
+  }
+
+  if (options.dependencyKeys) {
+    Object.assign(
+      options,
+      options.dependencyKeys.reduce(
+        (enhancements, option) => {
+          if (typeof option === 'string') {
+            enhancements.dependencyKeys.push(option)
+          } else {
+            const { key, staleOnChange, allowBlank } = option
+            if (staleOnChange) {
+              enhancements.stalingDependencyKeys.add(key)
+            }
+            if (allowBlank) {
+              enhancements.blankingDependencyKeys.add(key)
+            }
+            enhancements.dependencyKeys.push(key)
+          }
+          return enhancements
+        },
+        {
+          dependencyKeys: [],
+          stalingDependencyKeys: new Set(),
+          blankingDependencyKeys: new Set(),
+        }
+      )
+    )
+  }
+
+  return options
 }
 
-function toUnderscoreCase(input) {
-  return input
-    .replace(/\.?([A-Z]+)/g, (x, y) => '_' + y.toLowerCase())
-    .replace(/^_/, '')
-    .toUpperCase()
+function changedKeys(left, right) {
+  return Object.keys(left).filter(key => left[key] !== right[key])
 }

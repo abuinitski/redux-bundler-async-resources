@@ -1,6 +1,6 @@
 import makeAsyncResourcesBundleKeys from '../makeAsyncResourcesBundleKeys'
 
-describe('createAsyncResourcesBundle', () => {
+describe('makeAsyncResourcesBundleKeys', () => {
   test('creates correct object', () => {
     expect(makeAsyncResourcesBundleKeys('myResources')).toEqual({
       selectors: {

@@ -82,6 +82,16 @@ export default function HotCarDeals() {
 - **staleAfter** _(900000 i.e. 15 minutes)_: an interval of time after which a successfully fetched item will try to refresh itself (e.g. turn `select${Name}IsPendingForFetch` back on). Falsie value or `Infinity` will disable staling mechanism.
 - **expireAfter** _(`Infinity`)_: similar to `staleAfter` but will hard-remove the item from the store, resetting it to pristine state. Useful with caching to to prevent app user to see really old data when re-opening the page.
 - **persist** _(true)_: will instruct `cacheBundle` to cache on meaningful updates.
+- **dependencyKey** _(null)_: when given, will listen for values of related selectors:
+  - as an example, dependency key `userId` will listen to selector `selectUserId`
+  - when dependency selector resolves with `null` or `undefined`, it will prevent resource from fetching
+  - when dependency selector resolves to a value, this value will be mixed-in into `getPromise` parameters
+  - when resolved value changes, bundle will force-clear itself
+  - example values used in most cases: `currentUserId` or `['myResourceListPage', 'myResourceListPageSize']'`
+  - as shown above, to listen to several selectors, pass an array
+  - rather than a simple string, each selector can be represented as an object with additional parameters (i.e. `{ key: 'userId', staleOnChange: true '}`):
+    - **staleOnChange**: _(false)_ - if `true`, will stale a resource when dependency changes, rather than clearing the store
+    - **allowBlank**: _(false)_ – if `true`, will not lock resource from fetching when resolved value is `null` or `undefined`    
 
 #### Selectors
 
@@ -89,12 +99,12 @@ export default function HotCarDeals() {
 - `select${Name}` – returns item data or `undefined` if there's nothing there
 - `select${Name}IsPresent` – returns `true` if there is something to be returned by `select${Name}` (i.e. there was at least one successful load before)
 - `select${Name}IsLoading` – returns `true` if item is currently loading (irrelevant of whether there is some data or not in `select${Name}`)
-- `select${Name}IsPendingForFetch` – returns `true` if resource thinks it should load now (i.e. pristine or stale or there was an error and `retryAfter` has passed)
+- `select${Name}IsPendingForFetch` – returns `true` if resource thinks it should load now (i.e. pristine or stale or there was an error and `retryAfter` has passed or dependencies were specified and changed)
 - `select${Name}Error` – returns whatever `gerPromise` rejected with previously; reset to `null` or new error value after next load is finished
 - `select${Name}IsReadyForRetry` – returns `true` if previous fetch resulted in error and `retryAfter` has passed
 - `select${Name}RetryAt` – returns `null` or a timestamp at which item fetch will be retried
 - `select${Name}ErrorIsPermanent` – returns `true` if previous fetch resulted in error and error object had `permanent` field on
-- `select${Name}IsStale` – returns `true` if item is stale (manually or respective interval has passed)
+- `select${Name}IsStale` – returns `true` if item is stale (manually or respective interval has passed) 
 
 #### Action Creators
 
@@ -102,6 +112,8 @@ export default function HotCarDeals() {
 - `doClear${Name}` – force-clear a bundle and reset it to pristine state
 - `doMark${Name}AsStale` – force-mark resource as outdated. Will not remove item from the bundle, but will turn "refetch me!" flag on.
 - `doAdjust${Name}(payload)` – if there is some data present, replace item data with specified `payload`. If `payload` is a function, call it a with single parameter (current data value), and replace data with that it returns. Primary use case is when you have some mutation API calls to your resource that always render a predictable change of your resource properties – so you want to save up on re-fetching it and just update in place.
+
+... some other selectors and action creators are present, though mostly technical and are needed for bundle  functioning 
 
 ### createAsyncResourcesBundle
 
@@ -244,6 +256,8 @@ In (rare) cases when you need to async resources in a resource-agnostic manner, 
 
 Calling this with a resource `name` will return you an object of the following shape (assuming resource name `"myResource"`):
 
+(similar to)
+
 ```json
 {
   "selectors": {
@@ -282,7 +296,7 @@ Calling this with a resource `name` will return you an object of the following s
 }
 ```
 
-... and for `makeAsyncResourcesBundleKeys` it will be:
+... and for `makeAsyncResourcesBundleKeys` it will be similar to:
 
 ```json
 {

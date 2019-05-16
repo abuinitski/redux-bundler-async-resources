@@ -410,6 +410,126 @@ describe('createAsyncResourceBundle', () => {
       })
     })
   })
+
+  describe('dependency keys', () => {
+    describe('with one dependency', () => {
+      test('does not try to fetch while dependencies are not satisfied', () => {
+        const { store } = createStore({ dependencyKey: 'currentPage' })
+        expect(store.selectTestResourceIsPendingForFetch()).toBe(false)
+      })
+
+      test('triggers pending state as soon as dependency is resolved', async () => {
+        const { store } = createStore({ dependencyKey: 'currentPage' })
+        store.doChangePaging({ currentPage: 1 })
+        await tapReactors()
+        expect(store.selectTestResourceIsPendingForFetch()).toBe(true)
+      })
+
+      test('clears the store when dependency changes', async () => {
+        const { store, apiMock } = createStore({ dependencyKey: 'currentPage' })
+        store.doChangePaging({ currentPage: 1 })
+        await tapReactors()
+        store.doFetchTestResource()
+        await apiMock.resolveFetchRequest(1)
+
+        store.doChangePaging({ currentPage: 2 })
+        await tapReactors()
+        assertItem(store, {
+          data: undefined,
+          isLoading: false,
+          isPresent: false,
+          isPendingForFetch: true,
+          error: null,
+          errorPermanent: false,
+          isStale: false,
+          isReadyForRetry: false,
+        })
+      })
+
+      test('stales a resource instead of clearing it with "stale" option', async () => {
+        const { store, apiMock } = createStore({ dependencyKey: { key: 'currentPage', staleOnChange: true } })
+        store.doChangePaging({ currentPage: 1 })
+        await tapReactors()
+        store.doFetchTestResource()
+        await apiMock.resolveFetchRequest(1)
+
+        store.doChangePaging({ currentPage: 2 })
+        await tapReactors()
+
+        assertItem(store, {
+          data: 'One',
+          isLoading: false,
+          isPresent: true,
+          isPendingForFetch: true,
+          error: null,
+          errorPermanent: false,
+          isStale: true,
+          isReadyForRetry: false,
+        })
+      })
+
+      test('allows to enable passing down blank values', async () => {
+        const { store } = createStore({ dependencyKey: { key: 'currentPage', allowBlank: true } })
+        await tapReactors()
+        expect(store.selectTestResourceIsPendingForFetch()).toBe(true)
+      })
+
+      test.todo('mixes in dependency values into getPromise call')
+    })
+
+    describe('with multiple dependencies', () => {
+      test('does not try to fetch while dependencies are not satisfied', () => {
+        const { store } = createStore({ dependencyKey: ['currentPage', 'pageSize'] })
+        expect(store.selectTestResourceIsPendingForFetch()).toBe(false)
+      })
+
+      test('triggers pending state as soon as dependency is resolved', async () => {
+        const { store } = createStore({ dependencyKey: ['currentPage', 'pageSize'] })
+        store.doChangePaging({ currentPage: 1 })
+        await tapReactors()
+        await tapReactors()
+        expect(store.selectTestResourceIsPendingForFetch()).toBe(true)
+      })
+
+      test('clears the store when dependency changes', async () => {
+        const { store, apiMock } = createStore({ dependencyKey: ['currentPage', 'pageSize'] })
+        store.doChangePaging({ currentPage: 1 })
+        await tapReactors()
+        await tapReactors()
+
+        store.doFetchTestResource()
+        await apiMock.resolveFetchRequest(1)
+
+        store.doChangePaging({ currentPage: 2 })
+        await tapReactors()
+        assertItem(store, {
+          data: undefined,
+          isLoading: false,
+          isPresent: false,
+          isPendingForFetch: true,
+          error: null,
+          errorPermanent: false,
+          isStale: false,
+          isReadyForRetry: false,
+        })
+      })
+
+      test('stales a resource instead of clearing it with "stale" option and allows blank items', async () => {
+        const { store } = createStore({
+          dependencyKey: [{ key: 'currentPage', allowBlank: true }, { key: 'pageSize', staleOnChange: true }],
+        })
+
+        await tapReactors()
+        expect(store.selectTestResourceIsPendingForFetch()).toBe(true)
+
+        store.doChangePaging({ pageSize: 120 })
+        await tapReactors()
+        expect(store.selectTestResourceIsStale()).toBe(true)
+      })
+
+      test.todo('mixes in dependency values into getPromise call')
+    })
+  })
 })
 
 function createStore(settings = {}, itemId = 1) {
@@ -426,21 +546,51 @@ function createStore(settings = {}, itemId = 1) {
     ...settings,
   })
 
-  const storeFactory = composeBundlesRaw(appTimeBundle, createReactorBundle(), apiMockBundle, asyncResourceBundle)
+  const pagingBundle = {
+    name: 'paging',
+    reducer: (state = { currentPage: null, pageSize: 10 }, action) => {
+      if (action.type === 'paging.change') {
+        return {
+          ...state,
+          ...action.payload,
+        }
+      }
+      return state
+    },
+    doChangePaging: payload => ({ type: 'paging.change', payload: payload }),
+    selectCurrentPage: state => state.paging.currentPage,
+    selectPageSize: state => state.paging.pageSize,
+  }
+
+  const storeFactory = composeBundlesRaw(
+    createReactorBundle(),
+    appTimeBundle,
+    apiMockBundle,
+    asyncResourceBundle,
+    pagingBundle
+  )
 
   return { store: storeFactory(), apiMock }
 }
 
 function timeTravelTo(time, store) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     try {
       timekeeper.travel(START_TIME + time)
       store.dispatch({ type: 'dummy action', payload: null }) // just tap the app time
-      setTimeout(resolve, 0) // reactors might need a tick to settle down
+      await tapReactors()
+      resolve()
     } catch (e) {
       reject(e)
     }
   })
+}
+
+async function tapReactors() {
+  const tapOneReactor = () => new Promise(resolve => setTimeout(resolve, 0))
+  await tapOneReactor()
+  await tapOneReactor()
+  await tapOneReactor()
 }
 
 function assertItem(
