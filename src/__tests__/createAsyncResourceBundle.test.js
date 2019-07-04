@@ -16,6 +16,7 @@ describe('createAsyncResourceBundle', () => {
 
     expect(store.selectTestResourceRaw).toBeDefined()
     expect(store.selectTestResource).toBeDefined()
+    expect(store.selectTestResourceDependencyValues).toBeDefined()
     expect(store.selectTestResourceIsPresent).toBeDefined()
     expect(store.selectTestResourceIsLoading).toBeDefined()
     expect(store.selectTestResourceIsPendingForFetch).toBeDefined()
