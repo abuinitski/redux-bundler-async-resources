@@ -12,6 +12,7 @@ import ClearingFeature from './features/ClearingFeature'
 const InitialState = {
   isReloading: false,
   isLoadingMore: false,
+  isPristine: true,
   hasMoreItems: true,
 
   items: [],
@@ -37,10 +38,9 @@ export default function createInfiniteScrollAsyncCollectionBundle(inputOptions) 
   const { selectors, actionCreators, reactors } = bundleKeys
 
   const features = new Features(
-    ResourceDependenciesFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys }),
-    StalingFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys }),
-    ExpiryFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys }),
-    ClearingFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys })
+    InfiniteScrollAsyncCollectionBundleFeatures.map(featureClass =>
+      featureClass.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys })
+    )
   )
 
   const enhancedInitialState = features.enhanceCleanState(InitialState)

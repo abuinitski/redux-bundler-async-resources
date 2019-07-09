@@ -1,7 +1,7 @@
 export default class Features {
   #features = []
 
-  constructor(...features) {
+  constructor(features) {
     this.#features = features
   }
 

@@ -10,16 +10,10 @@ export default function makeAsyncResourceBundleKeys(name) {
     .addSelector('dataAt')
     .addSelector('isLoading')
     .addSelector('isPresent')
-    .addSelector('error')
-    .addSelector('isReadyForRetry')
-    .addSelector('retryAt')
-    .addSelector('errorIsPermanent')
     .addSelector('isPendingForFetch')
 
     .addActionCreator('doFetch')
     .addActionCreator('doAdjust')
-
-    .addReactor('shouldRetry')
 
   AsyncResourceBundleFeatures.forEach(featureClass => featureClass.addBundleConstants(builder))
 

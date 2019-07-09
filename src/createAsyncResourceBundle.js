@@ -8,6 +8,7 @@ import cookOptionsWithDefaults from './common/cookOptionsWithDefaults'
 import StalingFeature from './features/StalingFeature'
 import ExpiryFeature from './features/ExpiryFeature'
 import ClearingFeature from './features/ClearingFeature'
+import RetryFeature from './features/RetryFeature'
 
 const Defaults = {
   persist: true,
@@ -15,115 +16,100 @@ const Defaults = {
 
 const InitialState = {
   isLoading: false,
-
   data: undefined,
   dataAt: null,
-
-  error: null,
-  errorAt: null,
-  errorPermanent: false,
-  isReadyForRetry: false,
 }
 
-export const AsyncResourceBundleFeatures = [ResourceDependenciesFeature, StalingFeature, ExpiryFeature, ClearingFeature]
+export const AsyncResourceBundleFeatures = [
+  ResourceDependenciesFeature,
+  StalingFeature,
+  ExpiryFeature,
+  ClearingFeature,
+  RetryFeature,
+]
 
 export default function createAsyncResourceBundle(inputOptions) {
-  const { name, getPromise, actionBaseType, retryAfter, persist } = cookOptionsWithDefaults(inputOptions, Defaults)
+  const { name, getPromise, actionBaseType, persist } = cookOptionsWithDefaults(inputOptions, Defaults)
 
   const baseActionTypeName = actionBaseType || nameToUnderscoreCase(name)
 
   const bundleKeys = makeAsyncResourceBundleKeys(name)
   const { selectors, actionCreators, reactors } = bundleKeys
 
+  const retryFeature = RetryFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys })
   const features = new Features(
-    ResourceDependenciesFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys }),
-    StalingFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys }),
-    ExpiryFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys }),
-    ClearingFeature.withInputOptions(inputOptions, { bundleKeys, baseActionTypeName })
+    AsyncResourceBundleFeatures.map(featureClass =>
+      featureClass.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys })
+    )
   )
 
   const enhancedInitialState = features.enhanceCleanState(InitialState)
-
-  const retryEnabled = retryAfter && retryAfter !== Infinity
 
   const actions = {
     STARTED: `${baseActionTypeName}_FETCH_STARTED`,
     FINISHED: `${baseActionTypeName}_FETCH_FINISHED`,
     FAILED: `${baseActionTypeName}_FETCH_FAILED`,
-    READY_FOR_RETRY: `${baseActionTypeName}_READY_FOR_RETRY`,
     ADJUSTED: `${baseActionTypeName}_ADJUSTED`,
   }
 
-  const reducer = (state = enhancedInitialState, { type, payload }) => {
-    if (type === actions.STARTED) {
-      return {
-        ...state,
-        isLoading: true,
-      }
-    }
-
-    if (type === actions.FINISHED) {
-      return {
-        ...state,
-
-        isLoading: false,
-
-        data: payload,
-        dataAt: Date.now(),
-        isStale: false,
-
-        error: null,
-        errorAt: null,
-        errorPermanent: false,
-        isReadyForRetry: false,
-      }
-    }
-
-    if (type === actions.FAILED) {
-      return {
-        ...state,
-
-        isLoading: false,
-
-        error: payload,
-        errorAt: Date.now(),
-        errorPermanent: Boolean(payload.permanent),
-        isReadyForRetry: false,
-      }
-    }
-
-    if (type === actions.READY_FOR_RETRY) {
-      return {
-        ...state,
-        isReadyForRetry: true,
-      }
-    }
-
-    if (type === actions.ADJUSTED) {
-      if (!state.dataAt) {
-        return state
-      }
-
-      if (typeof payload === 'function') {
-        return {
-          ...state,
-          data: payload(state.data),
-        }
-      }
-
-      return {
-        ...state,
-        data: payload,
-      }
-    }
-
-    return state
-  }
-
-  const bundle = {
+  return features.enhanceBundle({
     name,
 
-    reducer: features.enhanceReducer(reducer, { rawInitialState: InitialState }),
+    reducer: features.enhanceReducer(
+      (state = enhancedInitialState, { type, payload }) => {
+        if (type === actions.STARTED) {
+          return {
+            ...state,
+            isLoading: true,
+          }
+        }
+
+        if (type === actions.FINISHED) {
+          return {
+            ...state,
+
+            isLoading: false,
+
+            data: payload,
+            dataAt: Date.now(),
+            isStale: false,
+
+            ...retryFeature.makeCleanErrorState(),
+          }
+        }
+
+        if (type === actions.FAILED) {
+          return {
+            ...state,
+
+            isLoading: false,
+
+            ...retryFeature.makeNewErrorState(payload, Date.now()),
+          }
+        }
+
+        if (type === actions.ADJUSTED) {
+          if (!state.dataAt) {
+            return state
+          }
+
+          if (typeof payload === 'function') {
+            return {
+              ...state,
+              data: payload(state.data),
+            }
+          }
+
+          return {
+            ...state,
+            data: payload,
+          }
+        }
+
+        return state
+      },
+      { rawInitialState: InitialState }
+    ),
 
     [selectors.raw]: state => state[name],
 
@@ -147,44 +133,19 @@ export default function createAsyncResourceBundle(inputOptions) {
       ({ isLoading }) => isLoading
     ),
 
-    [selectors.error]: createSelector(
-      selectors.raw,
-      ({ error }) => error
-    ),
-
-    [selectors.isReadyForRetry]: createSelector(
-      selectors.raw,
-      ({ isReadyForRetry }) => isReadyForRetry
-    ),
-
-    [selectors.retryAt]: createSelector(
-      selectors.raw,
-      ({ errorAt, errorPermanent }) => {
-        if (!errorAt || errorPermanent || !retryEnabled) {
-          return null
-        }
-        return errorAt + retryAfter
-      }
-    ),
-
-    [selectors.errorIsPermanent]: createSelector(
-      selectors.raw,
-      ({ errorPermanent }) => errorPermanent
-    ),
-
     [selectors.isPendingForFetch]: createSelector(
-      selectors.error,
+      selectors.hasError,
       selectors.isPresent,
       selectors.isStale,
       selectors.isLoading,
       selectors.isReadyForRetry,
       selectors.isDependencyResolved,
-      (error, isPresent, isStale, isLoading, isReadyForRetry, isDependencyResolved) => {
+      (hasError, isPresent, isStale, isLoading, isReadyForRetry, isDependencyResolved) => {
         if (!isDependencyResolved || isLoading) {
           return false
         }
 
-        if (error) {
+        if (hasError) {
           return isReadyForRetry
         }
 
@@ -211,20 +172,5 @@ export default function createAsyncResourceBundle(inputOptions) {
     [actionCreators.doAdjust]: payload => ({ type: actions.ADJUSTED, payload }),
 
     persistActions: (persist && features.enhancePersistActions([actions.FINISHED])) || null,
-  }
-
-  if (retryEnabled) {
-    bundle[reactors.shouldRetry] = createSelector(
-      selectors.retryAt,
-      selectors.isReadyForRetry,
-      'selectAppTime',
-      (retryAt, isReadyForRetry, appTime) => {
-        if (!isReadyForRetry && retryAt && appTime >= retryAt) {
-          return { type: actions.READY_FOR_RETRY }
-        }
-      }
-    )
-  }
-
-  return features.enhanceBundle(bundle)
+  })
 }
