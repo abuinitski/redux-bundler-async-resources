@@ -300,12 +300,12 @@ export default function createAsyncResourceBundle(inputOptions) {
     )
   }
 
-  bundle[selectors.dependencyValues] = createSelector(
-    selectors.raw,
-    ({ dependencyValues }) => dependencyValues
-  )
-
   if (dependenciesEnabled) {
+    bundle[selectors.dependencyValues] = createSelector(
+        selectors.raw,
+        ({ dependencyValues }) => dependencyValues
+    )
+
     bundle[selectors.isDependencyResolved] = createSelector(
       selectors.dependencyValues,
       dependencyValues =>
@@ -337,6 +337,8 @@ export default function createAsyncResourceBundle(inputOptions) {
       }
     )
   } else {
+    const blankDependencyValues = []
+    bundle[selectors.dependencyValues] = () => blankDependencyValues
     bundle[selectors.isDependencyResolved] = () => true
   }
 
