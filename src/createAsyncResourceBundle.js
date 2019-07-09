@@ -300,6 +300,11 @@ export default function createAsyncResourceBundle(inputOptions) {
     )
   }
 
+  bundle[selectors.dependencyValues] = createSelector(
+    selectors.raw,
+    ({ dependencyValues }) => dependencyValues
+  )
+
   if (dependenciesEnabled) {
     bundle[selectors.isDependencyResolved] = createSelector(
       selectors.dependencyValues,
@@ -309,11 +314,6 @@ export default function createAsyncResourceBundle(inputOptions) {
           const value = dependencyValues[key]
           return blankingDependencyKeys.has(key) || (value !== null && value !== undefined)
         })
-    )
-
-    bundle[selectors.dependencyValues] = createSelector(
-      selectors.raw,
-      ({ dependencyValues }) => dependencyValues
     )
 
     bundle[reactors.shouldUpdateDependencyValues] = createSelector(
