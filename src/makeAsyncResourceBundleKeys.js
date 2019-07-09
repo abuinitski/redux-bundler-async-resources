@@ -1,50 +1,27 @@
-import nameToCapitalizedCase from './common/nameToCapitalizedCase'
+import BundleConstantsBuilder from './common/BundleConstantsBuilder'
+import { AsyncResourceBundleFeatures } from './createAsyncResourceBundle'
 
 export default function makeAsyncResourceBundleKeys(name) {
-  const upName = nameToCapitalizedCase(name)
+  const builder = new BundleConstantsBuilder(name)
 
-  return {
-    selectors: {
-      raw: `select${upName}Raw`,
-      data: `select${upName}`,
-      dataAt: `select${upName}DataAt`,
-      dependencyValues: `select${upName}DependencyValues`,
-      isLoading: `select${upName}IsLoading`,
-      isPresent: `select${upName}IsPresent`,
-      error: `select${upName}Error`,
-      isReadyForRetry: `select${upName}IsReadyForRetry`,
-      retryAt: `select${upName}RetryAt`,
-      errorIsPermanent: `select${upName}ErrorIsPermanent`,
-      isStale: `select${upName}IsStale`,
-      isPendingForFetch: `select${upName}IsPendingForFetch`,
-      isDependencyResolved: `select${upName}IsDependencyResolved`,
-    },
-    keys: {
-      raw: `${name}Raw`,
-      data: name,
-      dataAt: `${name}DataAt`,
-      dependencyValues: `${name}DependencyValues`,
-      isLoading: `${name}IsLoading`,
-      isPresent: `${name}IsPresent`,
-      error: `${name}Error`,
-      isReadyForRetry: `${name}IsReadyForRetry`,
-      retryAt: `${name}RetryAt`,
-      errorIsPermanent: `${name}ErrorIsPermanent`,
-      isStale: `${name}IsStale`,
-      isPendingForFetch: `${name}IsPendingForFetch`,
-      isDependencyResolved: `${name}IsDependencyResolved`,
-    },
-    actionCreators: {
-      doFetch: `doFetch${upName}`,
-      doClear: `doClear${upName}`,
-      doMarkAsStale: `doMark${upName}AsStale`,
-      doAdjust: `doAdjust${upName}`,
-    },
-    reactors: {
-      shouldExpire: `react${upName}ShouldExpire`,
-      shouldRetry: `react${upName}ShouldRetry`,
-      shouldBecomeStale: `react${upName}ShouldBecomeStale`,
-      shouldUpdateDependencyValues: `react${upName}ShouldUpdateDependencyValues`,
-    },
-  }
+  builder
+    .addSelector('raw')
+    .addSelector('data', 'select:UPNAME:', ':NAME:')
+    .addSelector('dataAt')
+    .addSelector('isLoading')
+    .addSelector('isPresent')
+    .addSelector('error')
+    .addSelector('isReadyForRetry')
+    .addSelector('retryAt')
+    .addSelector('errorIsPermanent')
+    .addSelector('isPendingForFetch')
+
+    .addActionCreator('doFetch')
+    .addActionCreator('doAdjust')
+
+    .addReactor('shouldRetry')
+
+  AsyncResourceBundleFeatures.forEach(featureClass => featureClass.addBundleConstants(builder))
+
+  return builder.buildBundleConstants()
 }

@@ -7,14 +7,7 @@ import cookOptionsWithDefaults from './common/cookOptionsWithDefaults'
 import makeInfiniteScrollAsyncCollectionBundleKeys from './makeInfiniteScrollAsyncCollectionBundleKeys'
 import StalingFeature from './features/StalingFeature'
 import ExpiryFeature from './features/ExpiryFeature'
-
-const Defaults = {
-  name: undefined, // required
-  getPromise: undefined, // required
-  actionBaseType: null, // ${toUnderscoreCase(name)}
-  persist: false,
-  dependencyKey: null,
-}
+import ClearingFeature from './features/ClearingFeature'
 
 const InitialState = {
   isReloading: false,
@@ -22,15 +15,22 @@ const InitialState = {
   hasMoreItems: true,
 
   items: [],
+  reloadedAt: null,
   reloadError: null,
 
   loadMoreError: null,
   loadMoreErrorIsPermanent: false,
 }
 
-export default function createInfiniteScrollAsyncCollectionBundle(inputOptions) {
-  const { name, getPromise, actionBaseType, persist } = cookOptionsWithDefaults(inputOptions, Defaults)
+export const InfiniteScrollAsyncCollectionBundleFeatures = [
+  ResourceDependenciesFeature,
+  StalingFeature,
+  ExpiryFeature,
+  ClearingFeature,
+]
 
+export default function createInfiniteScrollAsyncCollectionBundle(inputOptions) {
+  const { name, getPromise, actionBaseType, persist } = cookOptionsWithDefaults(inputOptions, {})
   const baseActionTypeName = actionBaseType || nameToUnderscoreCase(name)
 
   const bundleKeys = makeInfiniteScrollAsyncCollectionBundleKeys(name)
@@ -39,7 +39,8 @@ export default function createInfiniteScrollAsyncCollectionBundle(inputOptions) 
   const features = new Features(
     ResourceDependenciesFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys }),
     StalingFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys }),
-    ExpiryFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys })
+    ExpiryFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys }),
+    ClearingFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys })
   )
 
   const enhancedInitialState = features.enhanceCleanState(InitialState)
@@ -62,6 +63,11 @@ export default function createInfiniteScrollAsyncCollectionBundle(inputOptions) 
     [selectors.data]: createSelector(
       selectors.raw,
       ({ items }) => items
+    ),
+
+    [selectors.dataAt]: createSelector(
+      selectors.raw,
+      ({ reloadedAt }) => reloadedAt
     ),
 
     // TODO: persist actions

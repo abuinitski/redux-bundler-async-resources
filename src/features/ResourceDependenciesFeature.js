@@ -4,6 +4,13 @@ import forceArray from '../common/forceArray'
 import keyToSelector from '../common/keyToSelector'
 
 export default class ResourceDependenciesFeature {
+  static addBundleConstants(builder) {
+    builder
+      .addSelector('dependencyValues')
+      .addSelector('isDependencyResolved')
+      .addReactor('shouldUpdateDependencyValues')
+  }
+
   static withInputOptions(inputOptions, { bundleKeys, baseActionTypeName }) {
     const {
       allDependencyKeys,
@@ -44,7 +51,7 @@ export default class ResourceDependenciesFeature {
     this.#dependencyKeysAllowedToBeBlank = dependencyKeysAllowedToBeBlank
   }
 
-  enhanceCleanState(cleanState, currentState) {
+  enhanceCleanState(cleanState, currentState = undefined) {
     if (currentState) {
       return {
         ...cleanState,

@@ -1,6 +1,10 @@
 import { createSelector } from 'redux-bundler'
 
 export default class ExpiryFeature {
+  static addBundleConstants(builder) {
+    builder.addReactor('shouldExpire')
+  }
+
   static withInputOptions(inputOptions, { bundleKeys, baseActionTypeName }) {
     const {
       expireAfter = Infinity, // never

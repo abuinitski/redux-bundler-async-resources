@@ -1,12 +1,6 @@
 import { createSelector } from 'redux-bundler'
 
-import {
-  itemErrorIsPermanent,
-  itemIsReadyForRetry,
-  itemIsStale,
-  getItemData,
-  itemIsPresent,
-} from './asyncResourcesHelpers'
+import { itemIsReadyForRetry, itemIsStale, getItemData, itemIsPresent } from './asyncResourcesHelpers'
 import makeAsyncResourcesBundleKeys from './makeAsyncResourcesBundleKeys'
 import cookOptionsWithDefaults from './common/cookOptionsWithDefaults'
 

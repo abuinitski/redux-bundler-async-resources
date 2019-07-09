@@ -1,6 +1,13 @@
 import { createSelector } from 'redux-bundler'
 
 export default class StalingFeature {
+  static addBundleConstants(builder) {
+    builder
+      .addSelector('isStale')
+      .addActionCreator('doMarkAsStale', 'doMark:UPNAME:AsStale')
+      .addReactor('shouldBecomeStale')
+  }
+
   static withInputOptions(inputOptions, { bundleKeys, baseActionTypeName }) {
     const {
       staleAfter = 900000, // fifteen minutes

@@ -6,7 +6,7 @@ export default class Features {
   }
 
   enhanceCleanState(rootBundleInitialState, currentState = undefined) {
-    return this.#enhance(rootBundleInitialState, 'enhanceCleanState', { currentState })
+    return this.#enhance(rootBundleInitialState, 'enhanceCleanState', currentState)
   }
 
   enhanceBundle(bundle) {
@@ -26,12 +26,12 @@ export default class Features {
     return this.#enhance(persistActions, 'enhancePersistActions')
   }
 
-  #enhance(something, enhanceMethodName, enhanceArgs) {
+  #enhance(something, enhanceMethodName, ...enhanceMethodArgs) {
     return this.#features.reduce((result, feature) => {
       if (!feature[enhanceMethodName]) {
         return result
       }
-      return feature[enhanceMethodName](result, enhanceArgs)
+      return feature[enhanceMethodName](result, ...enhanceMethodArgs)
     }, something)
   }
 }

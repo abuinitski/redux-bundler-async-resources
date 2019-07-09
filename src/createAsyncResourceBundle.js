@@ -7,16 +7,10 @@ import Features from './features/Features'
 import cookOptionsWithDefaults from './common/cookOptionsWithDefaults'
 import StalingFeature from './features/StalingFeature'
 import ExpiryFeature from './features/ExpiryFeature'
+import ClearingFeature from './features/ClearingFeature'
 
 const Defaults = {
-  name: undefined, // required
-  getPromise: undefined, // required
-  actionBaseType: null, // ${toUnderscoreCase(name)}
-  retryAfter: 60000, // one minute,
-  staleAfter: 900000, // fifteen minutes
-  expireAfter: Infinity,
   persist: true,
-  dependencyKey: null,
 }
 
 const InitialState = {
@@ -31,6 +25,8 @@ const InitialState = {
   isReadyForRetry: false,
 }
 
+export const AsyncResourceBundleFeatures = [ResourceDependenciesFeature, StalingFeature, ExpiryFeature, ClearingFeature]
+
 export default function createAsyncResourceBundle(inputOptions) {
   const { name, getPromise, actionBaseType, retryAfter, persist } = cookOptionsWithDefaults(inputOptions, Defaults)
 
@@ -42,7 +38,8 @@ export default function createAsyncResourceBundle(inputOptions) {
   const features = new Features(
     ResourceDependenciesFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys }),
     StalingFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys }),
-    ExpiryFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys })
+    ExpiryFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys }),
+    ClearingFeature.withInputOptions(inputOptions, { bundleKeys, baseActionTypeName })
   )
 
   const enhancedInitialState = features.enhanceCleanState(InitialState)
@@ -53,7 +50,6 @@ export default function createAsyncResourceBundle(inputOptions) {
     STARTED: `${baseActionTypeName}_FETCH_STARTED`,
     FINISHED: `${baseActionTypeName}_FETCH_FINISHED`,
     FAILED: `${baseActionTypeName}_FETCH_FAILED`,
-    CLEARED: `${baseActionTypeName}_CLEARED`,
     READY_FOR_RETRY: `${baseActionTypeName}_READY_FOR_RETRY`,
     ADJUSTED: `${baseActionTypeName}_ADJUSTED`,
   }
@@ -94,10 +90,6 @@ export default function createAsyncResourceBundle(inputOptions) {
         errorPermanent: Boolean(payload.permanent),
         isReadyForRetry: false,
       }
-    }
-
-    if (type === actions.CLEARED) {
-      return features.enhanceCleanState(InitialState, state)
     }
 
     if (type === actions.READY_FOR_RETRY) {
@@ -216,11 +208,9 @@ export default function createAsyncResourceBundle(inputOptions) {
       )
     },
 
-    [actionCreators.doClear]: () => ({ type: actions.CLEARED }),
-
     [actionCreators.doAdjust]: payload => ({ type: actions.ADJUSTED, payload }),
 
-    persistActions: (persist && features.enhancePersistActions([actions.FINISHED, actions.CLEARED])) || null,
+    persistActions: (persist && features.enhancePersistActions([actions.FINISHED])) || null,
   }
 
   if (retryEnabled) {

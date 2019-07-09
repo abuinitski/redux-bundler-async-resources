@@ -6,6 +6,7 @@ describe('makeAsyncResourceBundleKeys', () => {
       selectors: {
         raw: 'selectMyResourceRaw',
         data: 'selectMyResource',
+        dataAt: 'selectMyResourceDataAt',
         dependencyValues: 'selectMyResourceDependencyValues',
         isLoading: 'selectMyResourceIsLoading',
         isPresent: 'selectMyResourceIsPresent',
@@ -20,6 +21,7 @@ describe('makeAsyncResourceBundleKeys', () => {
       keys: {
         raw: `myResourceRaw`,
         data: 'myResource',
+        dataAt: 'myResourceDataAt',
         isLoading: 'myResourceIsLoading',
         isPresent: 'myResourceIsPresent',
         error: 'myResourceError',
@@ -27,6 +29,7 @@ describe('makeAsyncResourceBundleKeys', () => {
         retryAt: 'myResourceRetryAt',
         errorIsPermanent: 'myResourceErrorIsPermanent',
         isDependencyResolved: 'myResourceIsDependencyResolved',
+        dependencyValues: 'myResourceDependencyValues',
         isStale: 'myResourceIsStale',
         isPendingForFetch: 'myResourceIsPendingForFetch',
       },
