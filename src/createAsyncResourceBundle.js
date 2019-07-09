@@ -1,8 +1,9 @@
 import { createSelector } from 'redux-bundler'
 
 import makeAsyncResourceBundleKeys from './makeAsyncResourceBundleKeys'
-import keyToSelector from './common/keyToSelector'
 import { nameToUnderscoreCase } from './common/nameToUnderscoreCase'
+import ResourceDependenciesFeature from './features/ResourceDependenciesFeature'
+import Features from './features/Features'
 
 const Defaults = {
   name: undefined, // required
@@ -22,8 +23,6 @@ const InitialState = {
   dataAt: null,
   isStale: false,
 
-  dependencyValues: null,
-
   error: null,
   errorAt: null,
   errorPermanent: false,
@@ -31,139 +30,117 @@ const InitialState = {
 }
 
 export default function createAsyncResourceBundle(inputOptions) {
-  const {
-    name,
-    getPromise,
-    actionBaseType,
-    retryAfter,
-    expireAfter,
-    staleAfter,
-    persist,
-    dependencyKeys,
-    stalingDependencyKeys,
-    blankingDependencyKeys,
-  } = cookOptionsWithDefaults(inputOptions)
+  const { name, getPromise, actionBaseType, retryAfter, expireAfter, staleAfter, persist } = cookOptionsWithDefaults(
+    inputOptions
+  )
 
-  const baseType = actionBaseType || nameToUnderscoreCase(name)
+  const baseActionTypeName = actionBaseType || nameToUnderscoreCase(name)
+
+  const bundleKeys = makeAsyncResourceBundleKeys(name)
+  const { selectors, actionCreators, reactors } = bundleKeys
+
+  const features = new Features(
+    ResourceDependenciesFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys })
+  )
+
+  const enhancedInitialState = features.enhanceInitialState(InitialState)
 
   const expireEnabled = expireAfter && expireAfter !== Infinity
   const staleEnabled = staleAfter && staleAfter !== Infinity
   const retryEnabled = retryAfter && retryAfter !== Infinity
-  const dependenciesEnabled = Boolean(dependencyKeys)
-
-  const { selectors, actionCreators, reactors } = makeAsyncResourceBundleKeys(name)
 
   const actions = {
-    STARTED: `${baseType}_FETCH_STARTED`,
-    FINISHED: `${baseType}_FETCH_FINISHED`,
-    FAILED: `${baseType}_FETCH_FAILED`,
-    CLEARED: `${baseType}_CLEARED`,
-    STALE: `${baseType}_STALE`,
-    EXPIRED: `${baseType}_EXPIRED`,
-    READY_FOR_RETRY: `${baseType}_READY_FOR_RETRY`,
-    ADJUSTED: `${baseType}_ADJUSTED`,
-    DEPENDENCIES_CHANGED: `${baseType}_DEPENDENCIES_CHANGED`,
+    STARTED: `${baseActionTypeName}_FETCH_STARTED`,
+    FINISHED: `${baseActionTypeName}_FETCH_FINISHED`,
+    FAILED: `${baseActionTypeName}_FETCH_FAILED`,
+    CLEARED: `${baseActionTypeName}_CLEARED`,
+    STALE: `${baseActionTypeName}_STALE`,
+    EXPIRED: `${baseActionTypeName}_EXPIRED`,
+    READY_FOR_RETRY: `${baseActionTypeName}_READY_FOR_RETRY`,
+    ADJUSTED: `${baseActionTypeName}_ADJUSTED`,
+  }
+
+  const reducer = (state = enhancedInitialState, { type, payload }) => {
+    if (type === actions.STARTED) {
+      return {
+        ...state,
+        isLoading: true,
+      }
+    }
+
+    if (type === actions.FINISHED) {
+      return {
+        ...state,
+
+        isLoading: false,
+
+        data: payload,
+        dataAt: Date.now(),
+        isStale: false,
+
+        error: null,
+        errorAt: null,
+        errorPermanent: false,
+        isReadyForRetry: false,
+      }
+    }
+
+    if (type === actions.FAILED) {
+      return {
+        ...state,
+
+        isLoading: false,
+
+        error: payload,
+        errorAt: Date.now(),
+        errorPermanent: Boolean(payload.permanent),
+        isReadyForRetry: false,
+      }
+    }
+
+    if (type === actions.CLEARED || type === actions.EXPIRED) {
+      return enhancedInitialState
+    }
+
+    if (type === actions.STALE) {
+      return {
+        ...state,
+        isStale: true,
+      }
+    }
+
+    if (type === actions.READY_FOR_RETRY) {
+      return {
+        ...state,
+        isReadyForRetry: true,
+      }
+    }
+
+    if (type === actions.ADJUSTED) {
+      if (!state.dataAt) {
+        return state
+      }
+
+      if (typeof payload === 'function') {
+        return {
+          ...state,
+          data: payload(state.data),
+        }
+      }
+
+      return {
+        ...state,
+        data: payload,
+      }
+    }
+
+    return state
   }
 
   const bundle = {
     name,
 
-    reducer: (state = InitialState, { type, payload }) => {
-      if (type === actions.STARTED) {
-        return {
-          ...state,
-          isLoading: true,
-        }
-      }
-
-      if (type === actions.FINISHED) {
-        return {
-          ...state,
-
-          isLoading: false,
-
-          data: payload,
-          dataAt: Date.now(),
-          isStale: false,
-
-          error: null,
-          errorAt: null,
-          errorPermanent: false,
-          isReadyForRetry: false,
-        }
-      }
-
-      if (type === actions.FAILED) {
-        return {
-          ...state,
-
-          isLoading: false,
-
-          error: payload,
-          errorAt: Date.now(),
-          errorPermanent: Boolean(payload.permanent),
-          isReadyForRetry: false,
-        }
-      }
-
-      if (type === actions.CLEARED || type === actions.EXPIRED) {
-        return InitialState
-      }
-
-      if (type === actions.STALE) {
-        return {
-          ...state,
-          isStale: true,
-        }
-      }
-
-      if (type === actions.READY_FOR_RETRY) {
-        return {
-          ...state,
-          isReadyForRetry: true,
-        }
-      }
-
-      if (type === actions.ADJUSTED) {
-        if (!state.dataAt) {
-          return state
-        }
-
-        if (typeof payload === 'function') {
-          return {
-            ...state,
-            data: payload(state.data),
-          }
-        }
-
-        return {
-          ...state,
-          data: payload,
-        }
-      }
-
-      if (type === actions.DEPENDENCIES_CHANGED) {
-        const stale =
-          Boolean(state.dependencyValues) &&
-          (stalingDependencyKeys.size > 0 &&
-            changedKeys(state.dependencyValues, payload).every(key => stalingDependencyKeys.has(key)))
-
-        if (stale) {
-          return {
-            ...state,
-            isStale: true,
-            dependencyValues: payload,
-          }
-        } else {
-          return {
-            ...InitialState,
-            dependencyValues: payload,
-          }
-        }
-      }
-
-      return state
-    },
+    reducer: features.enhanceReducer(reducer, { initialState: enhancedInitialState }),
 
     [selectors.raw]: state => state[name],
 
@@ -233,18 +210,12 @@ export default function createAsyncResourceBundle(inputOptions) {
     ),
 
     [actionCreators.doFetch]: () => thunkArgs => {
-      const { dispatch, store } = thunkArgs
+      const { dispatch } = thunkArgs
       dispatch({ type: actions.STARTED })
 
-      let getPromiseArgs = thunkArgs
-      if (dependenciesEnabled) {
-        getPromiseArgs = {
-          ...getPromiseArgs,
-          ...store[selectors.dependencyValues](),
-        }
-      }
+      const enhancedThunkArgs = features.enhanceThunkArgs(thunkArgs)
 
-      return getPromise(getPromiseArgs).then(
+      return getPromise(enhancedThunkArgs).then(
         payload => {
           dispatch({ type: actions.FINISHED, payload })
         },
@@ -300,49 +271,7 @@ export default function createAsyncResourceBundle(inputOptions) {
     )
   }
 
-  if (dependenciesEnabled) {
-    bundle[selectors.dependencyValues] = createSelector(
-        selectors.raw,
-        ({ dependencyValues }) => dependencyValues
-    )
-
-    bundle[selectors.isDependencyResolved] = createSelector(
-      selectors.dependencyValues,
-      dependencyValues =>
-        Boolean(dependencyValues) &&
-        dependencyKeys.every(key => {
-          const value = dependencyValues[key]
-          return blankingDependencyKeys.has(key) || (value !== null && value !== undefined)
-        })
-    )
-
-    bundle[reactors.shouldUpdateDependencyValues] = createSelector(
-      selectors.dependencyValues,
-      ...dependencyKeys.map(keyToSelector),
-      (dependencyValues, ...nextDependencyValuesList) => {
-        const dependenciesChanged =
-          !dependencyValues ||
-          dependencyKeys.some((key, keyIndex) => dependencyValues[key] !== nextDependencyValuesList[keyIndex])
-
-        if (dependenciesChanged) {
-          const payload = nextDependencyValuesList.reduce(
-            (hash, value, index) => ({
-              ...hash,
-              [dependencyKeys[index]]: value,
-            }),
-            {}
-          )
-          return { type: actions.DEPENDENCIES_CHANGED, payload }
-        }
-      }
-    )
-  } else {
-    const blankDependencyValues = []
-    bundle[selectors.dependencyValues] = () => blankDependencyValues
-    bundle[selectors.isDependencyResolved] = () => true
-  }
-
-  return bundle
+  return features.enhanceBundle(bundle)
 }
 
 function cookOptionsWithDefaults(inputOptions) {
@@ -358,47 +287,5 @@ function cookOptionsWithDefaults(inputOptions) {
     }
   }
 
-  const { dependencyKey, ...options } = { ...Defaults, ...inputOptions }
-
-  if (Array.isArray(dependencyKey) && dependencyKey.length) {
-    options.dependencyKeys = dependencyKey
-  } else if (dependencyKey) {
-    options.dependencyKeys = [dependencyKey]
-  } else {
-    delete options.dependencyKeys
-  }
-
-  if (options.dependencyKeys) {
-    Object.assign(
-      options,
-      options.dependencyKeys.reduce(
-        (enhancements, option) => {
-          if (typeof option === 'string') {
-            enhancements.dependencyKeys.push(option)
-          } else {
-            const { key, staleOnChange, allowBlank } = option
-            if (staleOnChange) {
-              enhancements.stalingDependencyKeys.add(key)
-            }
-            if (allowBlank) {
-              enhancements.blankingDependencyKeys.add(key)
-            }
-            enhancements.dependencyKeys.push(key)
-          }
-          return enhancements
-        },
-        {
-          dependencyKeys: [],
-          stalingDependencyKeys: new Set(),
-          blankingDependencyKeys: new Set(),
-        }
-      )
-    )
-  }
-
-  return options
-}
-
-function changedKeys(left, right) {
-  return Object.keys(left).filter(key => left[key] !== right[key])
+  return { ...Defaults, ...inputOptions }
 }
