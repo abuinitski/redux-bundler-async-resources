@@ -16,6 +16,9 @@ export { default as makeAsyncResourceBundleKeys } from './makeAsyncResourceBundl
 export { default as createAsyncResourceBundle } from './createAsyncResourceBundle'
 export { default as makeAsyncResourcesBundleKeys } from './makeAsyncResourcesBundleKeys'
 
+export { default as createInfiniteScrollAsyncCollectionBundle } from './createInfiniteScrollAsyncCollectionBundle'
+export { default as makeInfiniteScrollAsyncCollectionBundleKeys } from './makeInfiniteScrollAsyncCollectionBundleKeys'
+
 export const asyncResources = {
   getItemData,
   itemIsPresent,

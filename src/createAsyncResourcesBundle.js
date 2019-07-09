@@ -8,6 +8,7 @@ import {
   itemIsPresent,
 } from './asyncResourcesHelpers'
 import makeAsyncResourcesBundleKeys from './makeAsyncResourcesBundleKeys'
+import cookOptionsWithDefaults from './common/cookOptionsWithDefaults'
 
 const Defaults = {
   name: undefined, // required
@@ -35,7 +36,8 @@ const BlankItemState = {
 
 export default function createAsyncResourcesBundle(inputOptions) {
   const { name, getPromise, actionBaseType, retryAfter, expireAfter, staleAfter, persist } = cookOptionsWithDefaults(
-    inputOptions
+    inputOptions,
+    Defaults
   )
 
   const baseType = actionBaseType || toUnderscoreCase(name)
@@ -247,22 +249,6 @@ export default function createAsyncResourcesBundle(inputOptions) {
   }
 
   return bundle
-}
-
-function cookOptionsWithDefaults(options) {
-  if (process.env.NODE_ENV !== 'production') {
-    const { name, getPromise } = options
-
-    if (!name) {
-      throw new Error('createAsyncResourcesBundle: name parameter is required')
-    }
-
-    if (!getPromise) {
-      throw new Error('createAsyncResourcesBundle: getPromise parameter is required')
-    }
-  }
-
-  return { ...Defaults, ...options }
 }
 
 function selectEarliestItem(items, timePropName, predicate) {

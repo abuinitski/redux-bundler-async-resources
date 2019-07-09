@@ -5,8 +5,8 @@ export default class Features {
     this.#features = features
   }
 
-  enhanceInitialState(initialState) {
-    return this.#enhance(initialState, 'enhanceInitialState')
+  enhanceCleanState(rootBundleInitialState, currentState = undefined) {
+    return this.#enhance(rootBundleInitialState, 'enhanceCleanState', { currentState })
   }
 
   enhanceBundle(bundle) {
@@ -17,8 +17,13 @@ export default class Features {
     return this.#enhance(thunkArgs, 'enhanceThunkArgs')
   }
 
-  enhanceReducer(reducer, { initialState }) {
-    return this.#enhance(reducer, 'enhanceReducer', { initialState })
+  enhanceReducer(reducer, { rawInitialState }) {
+    const makeCleanState = currentState => this.#enhance(rawInitialState, 'enhanceCleanState', currentState)
+    return this.#enhance(reducer, 'enhanceReducer', { makeCleanState })
+  }
+
+  enhancePersistActions(persistActions) {
+    return this.#enhance(persistActions, 'enhancePersistActions')
   }
 
   #enhance(something, enhanceMethodName, enhanceArgs) {

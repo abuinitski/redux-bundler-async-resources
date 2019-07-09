@@ -7,6 +7,7 @@ export default function makeAsyncResourceBundleKeys(name) {
     selectors: {
       raw: `select${upName}Raw`,
       data: `select${upName}`,
+      dataAt: `select${upName}DataAt`,
       dependencyValues: `select${upName}DependencyValues`,
       isLoading: `select${upName}IsLoading`,
       isPresent: `select${upName}IsPresent`,
@@ -21,6 +22,8 @@ export default function makeAsyncResourceBundleKeys(name) {
     keys: {
       raw: `${name}Raw`,
       data: name,
+      dataAt: `${name}DataAt`,
+      dependencyValues: `${name}DependencyValues`,
       isLoading: `${name}IsLoading`,
       isPresent: `${name}IsPresent`,
       error: `${name}Error`,

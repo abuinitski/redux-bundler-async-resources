@@ -4,6 +4,9 @@ import makeAsyncResourceBundleKeys from './makeAsyncResourceBundleKeys'
 import { nameToUnderscoreCase } from './common/nameToUnderscoreCase'
 import ResourceDependenciesFeature from './features/ResourceDependenciesFeature'
 import Features from './features/Features'
+import cookOptionsWithDefaults from './common/cookOptionsWithDefaults'
+import StalingFeature from './features/StalingFeature'
+import ExpiryFeature from './features/ExpiryFeature'
 
 const Defaults = {
   name: undefined, // required
@@ -21,7 +24,6 @@ const InitialState = {
 
   data: undefined,
   dataAt: null,
-  isStale: false,
 
   error: null,
   errorAt: null,
@@ -30,9 +32,7 @@ const InitialState = {
 }
 
 export default function createAsyncResourceBundle(inputOptions) {
-  const { name, getPromise, actionBaseType, retryAfter, expireAfter, staleAfter, persist } = cookOptionsWithDefaults(
-    inputOptions
-  )
+  const { name, getPromise, actionBaseType, retryAfter, persist } = cookOptionsWithDefaults(inputOptions, Defaults)
 
   const baseActionTypeName = actionBaseType || nameToUnderscoreCase(name)
 
@@ -40,13 +40,13 @@ export default function createAsyncResourceBundle(inputOptions) {
   const { selectors, actionCreators, reactors } = bundleKeys
 
   const features = new Features(
-    ResourceDependenciesFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys })
+    ResourceDependenciesFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys }),
+    StalingFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys }),
+    ExpiryFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys })
   )
 
-  const enhancedInitialState = features.enhanceInitialState(InitialState)
+  const enhancedInitialState = features.enhanceCleanState(InitialState)
 
-  const expireEnabled = expireAfter && expireAfter !== Infinity
-  const staleEnabled = staleAfter && staleAfter !== Infinity
   const retryEnabled = retryAfter && retryAfter !== Infinity
 
   const actions = {
@@ -54,8 +54,6 @@ export default function createAsyncResourceBundle(inputOptions) {
     FINISHED: `${baseActionTypeName}_FETCH_FINISHED`,
     FAILED: `${baseActionTypeName}_FETCH_FAILED`,
     CLEARED: `${baseActionTypeName}_CLEARED`,
-    STALE: `${baseActionTypeName}_STALE`,
-    EXPIRED: `${baseActionTypeName}_EXPIRED`,
     READY_FOR_RETRY: `${baseActionTypeName}_READY_FOR_RETRY`,
     ADJUSTED: `${baseActionTypeName}_ADJUSTED`,
   }
@@ -98,15 +96,8 @@ export default function createAsyncResourceBundle(inputOptions) {
       }
     }
 
-    if (type === actions.CLEARED || type === actions.EXPIRED) {
-      return enhancedInitialState
-    }
-
-    if (type === actions.STALE) {
-      return {
-        ...state,
-        isStale: true,
-      }
+    if (type === actions.CLEARED) {
+      return features.enhanceCleanState(InitialState, state)
     }
 
     if (type === actions.READY_FOR_RETRY) {
@@ -140,7 +131,7 @@ export default function createAsyncResourceBundle(inputOptions) {
   const bundle = {
     name,
 
-    reducer: features.enhanceReducer(reducer, { initialState: enhancedInitialState }),
+    reducer: features.enhanceReducer(reducer, { rawInitialState: InitialState }),
 
     [selectors.raw]: state => state[name],
 
@@ -149,9 +140,14 @@ export default function createAsyncResourceBundle(inputOptions) {
       ({ data }) => data
     ),
 
-    [selectors.isPresent]: createSelector(
+    [selectors.dataAt]: createSelector(
       selectors.raw,
-      ({ dataAt }) => Boolean(dataAt)
+      ({ dataAt }) => dataAt
+    ),
+
+    [selectors.isPresent]: createSelector(
+      selectors.dataAt,
+      dataAt => Boolean(dataAt)
     ),
 
     [selectors.isLoading]: createSelector(
@@ -182,11 +178,6 @@ export default function createAsyncResourceBundle(inputOptions) {
     [selectors.errorIsPermanent]: createSelector(
       selectors.raw,
       ({ errorPermanent }) => errorPermanent
-    ),
-
-    [selectors.isStale]: createSelector(
-      selectors.raw,
-      ({ isStale }) => isStale
     ),
 
     [selectors.isPendingForFetch]: createSelector(
@@ -227,23 +218,9 @@ export default function createAsyncResourceBundle(inputOptions) {
 
     [actionCreators.doClear]: () => ({ type: actions.CLEARED }),
 
-    [actionCreators.doMarkAsStale]: () => ({ type: actions.STALE }),
-
     [actionCreators.doAdjust]: payload => ({ type: actions.ADJUSTED, payload }),
 
-    persistActions: (persist && [actions.FINISHED, actions.CLEARED, actions.EXPIRED]) || null,
-  }
-
-  if (expireEnabled) {
-    bundle[reactors.shouldExpire] = createSelector(
-      selectors.raw,
-      'selectAppTime',
-      ({ dataAt }, appTime) => {
-        if (dataAt && appTime - dataAt > expireAfter) {
-          return { type: actions.EXPIRED }
-        }
-      }
-    )
+    persistActions: (persist && features.enhancePersistActions([actions.FINISHED, actions.CLEARED])) || null,
   }
 
   if (retryEnabled) {
@@ -259,33 +236,5 @@ export default function createAsyncResourceBundle(inputOptions) {
     )
   }
 
-  if (staleEnabled) {
-    bundle[reactors.shouldBecomeStale] = createSelector(
-      selectors.raw,
-      'selectAppTime',
-      ({ dataAt, isStale }, appTime) => {
-        if (!isStale && dataAt && appTime - dataAt > staleAfter) {
-          return { type: actions.STALE }
-        }
-      }
-    )
-  }
-
   return features.enhanceBundle(bundle)
-}
-
-function cookOptionsWithDefaults(inputOptions) {
-  if (process.env.NODE_ENV !== 'production') {
-    const { name, getPromise } = inputOptions
-
-    if (!name) {
-      throw new Error('createAsyncResourceBundle: name parameter is required')
-    }
-
-    if (!getPromise) {
-      throw new Error('createAsyncResourceBundle: getPromise parameter is required')
-    }
-  }
-
-  return { ...Defaults, ...inputOptions }
 }

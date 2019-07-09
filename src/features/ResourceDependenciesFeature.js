@@ -44,24 +44,27 @@ export default class ResourceDependenciesFeature {
     this.#dependencyKeysAllowedToBeBlank = dependencyKeysAllowedToBeBlank
   }
 
-  enhanceInitialState(initialState) {
-    if (!this.#enabled) {
-      return initialState
+  enhanceCleanState(cleanState, currentState) {
+    if (currentState) {
+      return {
+        ...cleanState,
+        dependencyValues: currentState.dependencyValues,
+      }
     }
 
     return {
-      ...initialState,
-      dependencyValues: null,
+      ...cleanState,
+      dependencyValues: (currentState && currentState.dependencyValues) || null,
     }
   }
 
-  enhanceReducer(originalReducer, { initialState }) {
+  enhanceReducer(originalReducer, { makeCleanState }) {
     if (!this.#enabled) {
       return originalReducer
     }
 
-    return (state, action) => {
-      const nextState = originalReducer(state, action)
+    return (originalState, action) => {
+      const state = originalReducer(originalState, action)
 
       if (action.type === this.#actions.DEPENDENCIES_CHANGED) {
         const nextDependencyValues = action.payload
@@ -80,13 +83,13 @@ export default class ResourceDependenciesFeature {
           }
         } else {
           return {
-            ...initialState,
+            ...makeCleanState(state),
             dependencyValues: nextDependencyValues,
           }
         }
       }
 
-      return nextState
+      return state
     }
   }
 

@@ -33,8 +33,8 @@ describe('createAsyncResourceBundle', () => {
   })
 
   test('checks for required parameters', () => {
-    expect(() => createStore({ name: '' })).toThrow('createAsyncResourceBundle: name parameter is required')
-    expect(() => createStore({ getPromise: '' })).toThrow('createAsyncResourceBundle: getPromise parameter is required')
+    expect(() => createStore({ name: '' })).toThrow('resource bundle factory: name parameter is required')
+    expect(() => createStore({ getPromise: '' })).toThrow('resource bundle factory: getPromise parameter is required')
   })
 
   test('correctly handles item initial state', () => {
