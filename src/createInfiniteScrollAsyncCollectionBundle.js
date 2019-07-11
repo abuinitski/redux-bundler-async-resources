@@ -46,7 +46,12 @@ export default function createInfiniteScrollAsyncCollectionBundle(inputOptions) 
   const enhancedInitialState = features.enhanceCleanState(InitialState)
 
   const actions = {
-    // TODO
+    REFRESH_STARTED: `${baseActionTypeName}_REFRESH_STARTED`,
+    REFRESH_FINISHED: `${baseActionTypeName}_REFRESH_FINISHED`,
+    REFRESH_FAILED: `${baseActionTypeName}_REFRESH_FAILED`,
+    LOAD_MORE_STARTED: `${baseActionTypeName}_LOAD_MORE_STARTED`,
+    LOAD_MORE_FINISHED: `${baseActionTypeName}_LOAD_MORE_FINISHED`,
+    LOAD_MORE_FAILED: `${baseActionTypeName}_LOAD_MORE_FAILED`,
   }
 
   const reducer = (state = enhancedInitialState, { type, payload }) => {

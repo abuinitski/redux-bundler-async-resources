@@ -31,15 +31,9 @@ export default class ExpiryFeature {
     }
   }
 
-  enhanceReducer(originalReducer, { makeCleanState }) {
-    return (originalState, action) => {
-      const state = originalReducer(originalState, action)
-
-      if (action.type === this.#actions.EXPIRED) {
-        return makeCleanState(state)
-      }
-
-      return state
+  getActionHandlers({ makeCleanState }) {
+    return {
+      [this.#actions.EXPIRED]: state => makeCleanState(state),
     }
   }
 

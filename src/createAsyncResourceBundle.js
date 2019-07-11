@@ -9,6 +9,7 @@ import StalingFeature from './features/StalingFeature'
 import ExpiryFeature from './features/ExpiryFeature'
 import ClearingFeature from './features/ClearingFeature'
 import RetryFeature from './features/RetryFeature'
+import makeReducer from './common/makeReducer'
 
 const Defaults = {
   persist: true,
@@ -52,63 +53,57 @@ export default function createAsyncResourceBundle(inputOptions) {
     ADJUSTED: `${baseActionTypeName}_ADJUSTED`,
   }
 
+  const actionHandlers = {
+    [actions.STARTED]: state => ({
+      ...state,
+      isLoading: true,
+    }),
+
+    [actions.FINISHED]: (state, action) => ({
+      ...state,
+
+      isLoading: false,
+
+      data: action.payload,
+      dataAt: Date.now(),
+      isStale: false,
+
+      ...retryFeature.makeCleanErrorState(),
+    }),
+
+    [actions.FAILED]: (state, action) => ({
+      ...state,
+
+      isLoading: false,
+
+      ...retryFeature.makeNewErrorState(action.payload, Date.now()),
+    }),
+
+    [actions.ADJUSTED]: (state, action) => {
+      if (!state.dataAt) {
+        return state
+      }
+
+      if (typeof action.payload === 'function') {
+        return {
+          ...state,
+          data: action.payload(state.data),
+        }
+      }
+
+      return {
+        ...state,
+        data: action.payload,
+      }
+    },
+  }
+
   return features.enhanceBundle({
     name,
 
-    reducer: features.enhanceReducer(
-      (state = enhancedInitialState, { type, payload }) => {
-        if (type === actions.STARTED) {
-          return {
-            ...state,
-            isLoading: true,
-          }
-        }
-
-        if (type === actions.FINISHED) {
-          return {
-            ...state,
-
-            isLoading: false,
-
-            data: payload,
-            dataAt: Date.now(),
-            isStale: false,
-
-            ...retryFeature.makeCleanErrorState(),
-          }
-        }
-
-        if (type === actions.FAILED) {
-          return {
-            ...state,
-
-            isLoading: false,
-
-            ...retryFeature.makeNewErrorState(payload, Date.now()),
-          }
-        }
-
-        if (type === actions.ADJUSTED) {
-          if (!state.dataAt) {
-            return state
-          }
-
-          if (typeof payload === 'function') {
-            return {
-              ...state,
-              data: payload(state.data),
-            }
-          }
-
-          return {
-            ...state,
-            data: payload,
-          }
-        }
-
-        return state
-      },
-      { rawInitialState: InitialState }
+    reducer: makeReducer(
+      features.enhanceActionHandlers(actionHandlers, { rawInitialState: InitialState }),
+      enhancedInitialState
     ),
 
     [selectors.raw]: state => state[name],

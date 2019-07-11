@@ -65,15 +65,13 @@ export default class ResourceDependenciesFeature {
     }
   }
 
-  enhanceReducer(originalReducer, { makeCleanState }) {
+  getActionHandlers({ makeCleanState }) {
     if (!this.#enabled) {
-      return originalReducer
+      return {}
     }
 
-    return (originalState, action) => {
-      const state = originalReducer(originalState, action)
-
-      if (action.type === this.#actions.DEPENDENCIES_CHANGED) {
+    return {
+      [this.#actions.DEPENDENCIES_CHANGED]: (state, action) => {
         const nextDependencyValues = action.payload
 
         const stale =
@@ -94,9 +92,7 @@ export default class ResourceDependenciesFeature {
             dependencyValues: nextDependencyValues,
           }
         }
-      }
-
-      return state
+      },
     }
   }
 

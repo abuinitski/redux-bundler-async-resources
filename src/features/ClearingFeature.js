@@ -18,15 +18,9 @@ export default class ClearingFeature {
     }
   }
 
-  enhanceReducer(originalReducer, { makeCleanState }) {
-    return (originalState, action) => {
-      const state = originalReducer(originalState, action)
-
-      if (action.type === this.#actions.CLEARED) {
-        return makeCleanState(state)
-      }
-
-      return state
+  getActionHandlers({ makeCleanState }) {
+    return {
+      [this.#actions.CLEARED]: state => makeCleanState(state),
     }
   }
 

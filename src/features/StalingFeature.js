@@ -41,18 +41,12 @@ export default class StalingFeature {
     }
   }
 
-  enhanceReducer(originalReducer) {
-    return (originalState, action) => {
-      const state = originalReducer(originalState, action)
-
-      if (action.type === this.#actions.STALE) {
-        return {
-          ...state,
-          isStale: true,
-        }
-      }
-
-      return state
+  getActionHandlers() {
+    return {
+      [this.#actions.STALE]: state => ({
+        ...state,
+        isStale: true,
+      }),
     }
   }
 
