@@ -38,6 +38,7 @@ export default function createAsyncResourceBundle(inputOptions) {
   const { selectors, actionCreators, reactors } = bundleKeys
 
   const retryFeature = RetryFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys })
+  const staleFeature = StalingFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys })
   const features = new Features(
     AsyncResourceBundleFeatures.map(featureClass =>
       featureClass.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys })
@@ -66,8 +67,8 @@ export default function createAsyncResourceBundle(inputOptions) {
 
       data: action.payload,
       dataAt: Date.now(),
-      isStale: false,
 
+      ...staleFeature.makeCleanStaleState(),
       ...retryFeature.makeCleanErrorState(),
     }),
 

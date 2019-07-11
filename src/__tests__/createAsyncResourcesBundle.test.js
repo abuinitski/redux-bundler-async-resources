@@ -1,16 +1,13 @@
-import timekeeper from 'timekeeper'
 import { createReactorBundle, appTimeBundle, composeBundlesRaw } from 'redux-bundler'
 
 import MockApiClient from '../__mocks__/MockApiClient'
 import { createAsyncResourcesBundle, asyncResources } from '../index'
+import { setUpTimeTravel, START_TIME, timeTravelTo } from '../__mocks__/time'
 
-const START_TIME = 1000
 const DEFAULT_RETRY_IN = 60000
 
 describe('createAsyncResourcesBundle', () => {
-  beforeEach(() => timekeeper.freeze(START_TIME))
-
-  afterEach(() => timekeeper.reset())
+  setUpTimeTravel()
 
   test('provides declared interface', () => {
     const { store } = createStore()
@@ -23,9 +20,7 @@ describe('createAsyncResourcesBundle', () => {
 
   test('checks for required parameters', () => {
     expect(() => createStore({ name: '' })).toThrow('resource bundle factory: name parameter is required')
-    expect(() => createStore({ getPromise: '' })).toThrow(
-      'resource bundle factory: getPromise parameter is required'
-    )
+    expect(() => createStore({ getPromise: '' })).toThrow('resource bundle factory: getPromise parameter is required')
   })
 
   test('correctly handles item initial state', () => {
@@ -438,18 +433,6 @@ function createStore(settings = {}) {
   const storeFactory = composeBundlesRaw(appTimeBundle, createReactorBundle(), apiMockBundle, asyncResourceBundle)
 
   return { store: storeFactory(), apiMock }
-}
-
-function timeTravelTo(time, store) {
-  return new Promise((resolve, reject) => {
-    try {
-      timekeeper.travel(START_TIME + time)
-      store.dispatch({ type: 'dummy action', payload: null }) // just tap the app time
-      setTimeout(resolve, 0) // reactors might need a tick to settle down
-    } catch (e) {
-      reject(e)
-    }
-  })
 }
 
 function assertItem(

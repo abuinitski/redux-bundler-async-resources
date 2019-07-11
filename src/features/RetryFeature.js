@@ -1,4 +1,5 @@
 import { createSelector } from 'redux-bundler'
+import isErrorPermanent from '../common/isErrorPermanent'
 
 export default class RetryFeature {
   static addBundleConstants(builder) {
@@ -35,7 +36,6 @@ export default class RetryFeature {
   makeCleanErrorState() {
     return {
       error: null,
-      errorIsPermanent: false,
       errorAt: null,
     }
   }
@@ -43,7 +43,6 @@ export default class RetryFeature {
   makeNewErrorState(error, errorAt) {
     return {
       error,
-      errorIsPermanent: Boolean(error && error.permanent),
       errorAt,
     }
   }
@@ -72,8 +71,8 @@ export default class RetryFeature {
       ),
 
       [selectors.errorIsPermanent]: createSelector(
-        selectors.raw,
-        ({ errorIsPermanent }) => errorIsPermanent
+        selectors.error,
+        error => isErrorPermanent(error)
       ),
 
       [selectors.hasError]: createSelector(

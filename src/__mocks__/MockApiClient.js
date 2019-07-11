@@ -3,6 +3,8 @@ const Items = {
   2: 'Two',
   3: 'Three',
   nilItem: null,
+  collection1: ['one', 'two', 'three'],
+  collection2: ['four', 'five', 'six'],
 }
 
 export default function MockApiClient() {
@@ -17,6 +19,10 @@ export default function MockApiClient() {
         resolved: false,
       })
     })
+
+  this.resolveAllFetchRequests = async () => {
+    requestQueue.map(r => r.itemId).forEach(itemId => this.resolveFetchRequest(itemId))
+  }
 
   this.resolveFetchRequest = async (itemId, error = null) => {
     const index = requestQueue.findIndex(r => r.itemId === itemId && !r.resolved)

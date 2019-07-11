@@ -34,10 +34,14 @@ export default class StalingFeature {
     }
   }
 
+  makeCleanStaleState() {
+    return { isStale: false }
+  }
+
   enhanceCleanState(cleanState) {
     return {
       ...cleanState,
-      isStale: false,
+      ...this.makeCleanStaleState(),
     }
   }
 
@@ -66,9 +70,10 @@ export default class StalingFeature {
 
     if (this.#autoStaleEnabled) {
       enhancedBundle[reactors.shouldBecomeStale] = createSelector(
-        selectors.raw,
+        selectors.dataAt,
+        selectors.isStale,
         'selectAppTime',
-        ({ dataAt, isStale }, appTime) => {
+        (dataAt, isStale, appTime) => {
           if (!isStale && dataAt && appTime - dataAt > this.#staleAfter) {
             return { type: this.#actions.STALE }
           }

@@ -36,14 +36,32 @@ export default class BundleConstantsBuilder {
 
   buildBundleConstants() {
     return {
-      selectors: this.#selectors,
-      keys: this.#keys,
-      actionCreators: this.#actionCreators,
-      reactors: this.#reactors,
+      selectors: this.#makeConstantsHash('selectors', this.#selectors),
+      keys: this.#makeConstantsHash('keys', this.#keys),
+      actionCreators: this.#makeConstantsHash('actionCreators', this.#actionCreators),
+      reactors: this.#makeConstantsHash('reactors', this.#reactors),
     }
   }
 
   #interpolate(template) {
     return template.replace(/:NAME:/g, this.#name).replace(/:UPNAME:/g, this.#upName)
+  }
+
+  #makeConstantsHash(name, constants) {
+    if (process.env.NODE_ENV === 'production') {
+      return constants
+    }
+
+    return new Proxy(constants, {
+      get(target, prop) {
+        if (prop in target) {
+          return target[prop]
+        }
+
+        throw new Error(
+          `async resource constant "${name}.${prop}" was requested but not defined for this resource; this is internal error in library implementation`
+        )
+      },
+    })
   }
 }
