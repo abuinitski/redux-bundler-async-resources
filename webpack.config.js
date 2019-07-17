@@ -2,14 +2,16 @@ const path = require('path')
 const nodeExternals = require('webpack-node-externals')
 
 module.exports = {
-  target: 'node',
   mode: 'production',
-  externals: [nodeExternals()],
-  entry: path.resolve(__dirname, './src/index.js'),
+  target: 'node',
   output: {
+    library: 'redux-bundler-async-resources',
+    libraryTarget: 'umd',
     path: __dirname,
     filename: 'index.js',
   },
+  externals: [nodeExternals()],
+  entry: path.resolve(__dirname, './src/index.js'),
   devtool: 'source-map',
   plugins: [],
   module: {
