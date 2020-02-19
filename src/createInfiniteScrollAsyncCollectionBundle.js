@@ -109,14 +109,14 @@ export default function createInfiniteScrollAsyncCollectionBundle(inputOptions) 
       }
     },
 
-    [actions.LOAD_MORE_STARTED]: (state, { requestId }) => {
+    [actions.LOAD_MORE_STARTED]: (state, { payload: { requestId } }) => {
       return {
         ...state,
         loadMoreRequestId: requestId,
       }
     },
 
-    [actions.LOAD_MORE_FINISHED]: (state, { requestId, items, hasMore }) => {
+    [actions.LOAD_MORE_FINISHED]: (state, { payload: { requestId, items, hasMore } }) => {
       if (state.loadMoreRequestId !== requestId) {
         return state
       }
@@ -133,7 +133,7 @@ export default function createInfiniteScrollAsyncCollectionBundle(inputOptions) 
       }
     },
 
-    [actions.LOAD_MORE_FAILED]: (state, { requestId, error, appTime }) => {
+    [actions.LOAD_MORE_FAILED]: (state, { payload: { requestId, error, appTime } }) => {
       if (state.loadMoreRequestId !== requestId) {
         return state
       }

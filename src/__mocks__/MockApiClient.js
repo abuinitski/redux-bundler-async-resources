@@ -1,3 +1,5 @@
+import {tapReactors} from "./utils";
+
 const Items = {
   1: 'One',
   2: 'Two',
@@ -45,6 +47,8 @@ export default function MockApiClient() {
     } else {
       request.resolve(item)
     }
+
+    await tapReactors();
   }
 
   this.pendingQueueCount = itemId => requestQueue.filter(r => r.itemId === itemId && !r.resolved).length

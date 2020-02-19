@@ -5,7 +5,7 @@ import { createInfiniteScrollAsyncCollectionBundle, makeInfiniteScrollAsyncColle
 import pagingBundle from '../__mocks__/pagingBundle'
 import { setUpTimeTravel, timeTravelTo } from '../__mocks__/time'
 import behavesAsStalingResource from '../__test_behaviors__/behavesAsStalingResource'
-import behavesAsResourceWithDependencies from "../__test_behaviors__/behavesAsResourceWithDependencies";
+import behavesAsResourceWithDependencies from '../__test_behaviors__/behavesAsResourceWithDependencies'
 
 describe('createInfiniteScrollAsyncCollectionBundle', () => {
   setUpTimeTravel()
@@ -110,10 +110,10 @@ describe('createInfiniteScrollAsyncCollectionBundle', () => {
   test('loads more items when requested', async () => {
     const { store, apiMock } = createStore()
     store.doRefreshTestResources()
-    await apiMock.resolveFetchRequest("collection1")
+    await apiMock.resolveFetchRequest('collection1')
 
     store.doLoadMoreTestResources()
-    await apiMock.resolveFetchRequest("collection1")
+    await apiMock.resolveFetchRequest('collection1')
 
     assertCollection(store, {
       items: ['one', 'two', 'three', 'one', 'two', 'three'],
@@ -395,12 +395,7 @@ function createStore(settings = {}, itemId = 'collection1') {
 
   const asyncCollectionBundle = createInfiniteScrollAsyncCollectionBundle({
     name: 'testResources',
-    getPromise: async (items, { apiClient }) => {
-      console.error("getPromise: ", items);
-      const nextItems = await apiClient.fetchItem(itemId)
-      const existingItems = items || []
-      return [...existingItems, ...nextItems]
-    },
+    getPromise: async (items, { apiClient }) => apiClient.fetchItem(itemId),
     ...settings,
   })
 
