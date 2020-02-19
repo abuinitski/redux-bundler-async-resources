@@ -107,6 +107,29 @@ describe('createInfiniteScrollAsyncCollectionBundle', () => {
     })
   })
 
+  test('loads more items when requested', async () => {
+    const { store, apiMock } = createStore()
+    store.doRefreshTestResources()
+    await apiMock.resolveFetchRequest("collection1")
+
+    store.doLoadMoreTestResources()
+    await apiMock.resolveFetchRequest("collection1")
+
+    assertCollection(store, {
+      items: ['one', 'two', 'three', 'one', 'two', 'three'],
+      isRefreshing: false,
+      isLoadingMore: false,
+      loadMoreError: null,
+      canLoadMore: true,
+      hasMore: true,
+      isStale: false,
+      isPresent: true,
+      error: null,
+      errorPermanent: false,
+      isReadyForRetry: false,
+    })
+  })
+
   test('correctly handles item error state', async () => {
     const { store, apiMock } = createStore()
 
@@ -372,7 +395,12 @@ function createStore(settings = {}, itemId = 'collection1') {
 
   const asyncCollectionBundle = createInfiniteScrollAsyncCollectionBundle({
     name: 'testResources',
-    getPromise: (items, { apiClient }) => apiClient.fetchItem(itemId),
+    getPromise: async (items, { apiClient }) => {
+      console.error("getPromise: ", items);
+      const nextItems = await apiClient.fetchItem(itemId)
+      const existingItems = items || []
+      return [...existingItems, ...nextItems]
+    },
     ...settings,
   })
 

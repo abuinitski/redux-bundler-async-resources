@@ -249,7 +249,7 @@ export default function createInfiniteScrollAsyncCollectionBundle(inputOptions) 
       )
     },
 
-    [actionHandlers.doLoadMore]: () => thunkArgs => {
+    [actionCreators.doLoadMore]: () => thunkArgs => {
       const { store, dispatch } = thunkArgs
 
       const requestId = generateUuid()
