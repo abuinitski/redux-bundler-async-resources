@@ -1,6 +1,6 @@
 {
   "name": "redux-bundler-async-resources",
-  "version": "2.0.0-beta.3",
+  "version": "2.0.0-beta.4",
   "description": "redux-bundler bundle that manages a collection of async resources",
   "main": "index.js",
   "scripts": {
