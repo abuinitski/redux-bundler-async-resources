@@ -11,7 +11,7 @@ export default class ResourceDependenciesFeature {
       .addReactor('shouldUpdateDependencyValues')
   }
 
-  static withInputOptions(inputOptions, { bundleKeys, baseActionTypeName }) {
+  static withInputOptions(inputOptions, { name, bundleKeys, baseActionTypeName }) {
     const {
       allDependencyKeys,
       dependencyKeysThatStaleResource,
@@ -19,6 +19,7 @@ export default class ResourceDependenciesFeature {
     } = this.#cookInputOptions(inputOptions)
 
     return new ResourceDependenciesFeature({
+      name,
       bundleKeys,
       baseActionTypeName,
       allDependencyKeys,
@@ -27,6 +28,7 @@ export default class ResourceDependenciesFeature {
     })
   }
 
+  #name = null
   #enabled = false
   #bundleKeys = null
   #actions = null
@@ -35,12 +37,14 @@ export default class ResourceDependenciesFeature {
   #dependencyKeysAllowedToBeBlank = new Set()
 
   constructor({
+    name,
     bundleKeys,
     baseActionTypeName,
     allDependencyKeys,
     dependencyKeysThatStaleResource,
     dependencyKeysAllowedToBeBlank,
   }) {
+    this.#name = name
     this.#enabled = Boolean(allDependencyKeys.length)
     this.#bundleKeys = bundleKeys
     this.#actions = {
@@ -49,6 +53,24 @@ export default class ResourceDependenciesFeature {
     this.#allDependencyKeys = allDependencyKeys
     this.#dependencyKeysThatStaleResource = dependencyKeysThatStaleResource
     this.#dependencyKeysAllowedToBeBlank = dependencyKeysAllowedToBeBlank
+  }
+
+  getInitHandler() {
+    return store => {
+      const dependencyValues = store.select(this.#allDependencyKeys.map(keyToSelector))
+      const storeState = store.getState()
+
+      store.dispatch({
+        type: 'REPLACE_STATE',
+        payload: {
+          ...storeState,
+          [this.#name]: {
+            ...storeState[this.#name],
+            dependencyValues,
+          },
+        },
+      })
+    }
   }
 
   enhanceCleanState(cleanState, currentState = undefined) {
@@ -123,10 +145,7 @@ export default class ResourceDependenciesFeature {
     return {
       ...bundle,
 
-      [selectors.dependencyValues]: createSelector(
-        selectors.raw,
-        ({ dependencyValues }) => dependencyValues
-      ),
+      [selectors.dependencyValues]: createSelector(selectors.raw, ({ dependencyValues }) => dependencyValues),
 
       [selectors.isDependencyResolved]: createSelector(
         selectors.dependencyValues,

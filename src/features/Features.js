@@ -5,6 +5,19 @@ export default class Features {
     this.#features = features
   }
 
+  getInitHandler() {
+    const handlers = this.#features.map(feature => feature.getInitHandler && feature.getInitHandler()).filter(Boolean)
+
+    if (!handlers.length) {
+      return undefined
+    }
+
+    return store => {
+      const cleanupHandlers = handlers.map(handler => handler(store)).filter(Boolean)
+      return () => void cleanupHandlers.forEach(cleanupHandler => cleanupHandler())
+    }
+  }
+
   enhanceCleanState(rawInitialState, currentState = undefined) {
     return this.#enhance(rawInitialState, 'enhanceCleanState', currentState)
   }

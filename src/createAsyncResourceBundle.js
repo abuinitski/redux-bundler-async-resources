@@ -35,13 +35,13 @@ export default function createAsyncResourceBundle(inputOptions) {
   const baseActionTypeName = actionBaseType || nameToUnderscoreCase(name)
 
   const bundleKeys = makeAsyncResourceBundleKeys(name)
-  const { selectors, actionCreators, reactors } = bundleKeys
+  const { selectors, actionCreators } = bundleKeys
 
-  const retryFeature = RetryFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys })
-  const staleFeature = StalingFeature.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys })
+  const retryFeature = RetryFeature.withInputOptions(inputOptions, { name, baseActionTypeName, bundleKeys })
+  const staleFeature = StalingFeature.withInputOptions(inputOptions, { name, baseActionTypeName, bundleKeys })
   const features = new Features(
     AsyncResourceBundleFeatures.map(featureClass =>
-      featureClass.withInputOptions(inputOptions, { baseActionTypeName, bundleKeys })
+      featureClass.withInputOptions(inputOptions, { name, baseActionTypeName, bundleKeys })
     )
   )
 
@@ -101,6 +101,8 @@ export default function createAsyncResourceBundle(inputOptions) {
 
   return features.enhanceBundle({
     name,
+
+    init: features.getInitHandler(),
 
     reducer: makeReducer(
       features.enhanceActionHandlers(actionHandlers, { rawInitialState: InitialState }),

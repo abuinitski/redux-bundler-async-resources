@@ -5,8 +5,8 @@ export default function generateUuid() {
 }
 
 function getRandomValue() {
-  if (window && window.crypto) {
-    return crypto.getRandomValues(new Uint8Array(1))[0]
+  if (typeof window !== 'undefined' && window.crypto) {
+    return window.crypto.getRandomValues(new Uint8Array(1))[0]
   }
   return Math.random() * Math.pow(2, 8)
 }
