@@ -14,6 +14,7 @@ export default class ResourceDependenciesFeature {
   static withInputOptions(inputOptions, { name, bundleKeys, baseActionTypeName }) {
     const {
       allDependencyKeys,
+      equalities,
       dependencyKeysThatStaleResource,
       dependencyKeysAllowedToBeBlank,
     } = this.#cookInputOptions(inputOptions)
@@ -23,6 +24,7 @@ export default class ResourceDependenciesFeature {
       bundleKeys,
       baseActionTypeName,
       allDependencyKeys,
+      equalities,
       dependencyKeysThatStaleResource,
       dependencyKeysAllowedToBeBlank,
     })
@@ -33,6 +35,7 @@ export default class ResourceDependenciesFeature {
   #bundleKeys = null
   #actions = null
   #allDependencyKeys = []
+  #equalities = new Map()
   #dependencyKeysThatStaleResource = new Set()
   #dependencyKeysAllowedToBeBlank = new Set()
 
@@ -41,6 +44,7 @@ export default class ResourceDependenciesFeature {
     bundleKeys,
     baseActionTypeName,
     allDependencyKeys,
+    equalities,
     dependencyKeysThatStaleResource,
     dependencyKeysAllowedToBeBlank,
   }) {
@@ -51,6 +55,7 @@ export default class ResourceDependenciesFeature {
       DEPENDENCIES_CHANGED: `${baseActionTypeName}_DEPENDENCIES_CHANGED`,
     }
     this.#allDependencyKeys = allDependencyKeys
+    this.#equalities = equalities
     this.#dependencyKeysThatStaleResource = dependencyKeysThatStaleResource
     this.#dependencyKeysAllowedToBeBlank = dependencyKeysAllowedToBeBlank
   }
@@ -163,7 +168,13 @@ export default class ResourceDependenciesFeature {
         (dependencyValues, ...nextDependencyValuesList) => {
           const dependenciesChanged =
             !dependencyValues ||
-            dependencyKeys.some((key, keyIndex) => dependencyValues[key] !== nextDependencyValuesList[keyIndex])
+            dependencyKeys.some((key, keyIndex) => {
+              const value = dependencyValues[key]
+              const nextValue = nextDependencyValuesList[keyIndex]
+              console.log(`M: `, this.#equalities)
+              console.log(`R (${key}): `, this.#equalities.get(key))
+              return !this.#equalities.get(key)(value, nextValue)
+            })
 
           if (dependenciesChanged) {
             const payload = nextDependencyValuesList.reduce(
@@ -194,25 +205,37 @@ export default class ResourceDependenciesFeature {
 
     return forceArray(dependencyKey).reduce(
       (options, option) => {
-        const { allDependencyKeys, dependencyKeysThatStaleResource, dependencyKeysAllowedToBeBlank } = options
+        const {
+          allDependencyKeys,
+          equalities,
+          dependencyKeysThatStaleResource,
+          dependencyKeysAllowedToBeBlank,
+        } = options
 
         if (typeof option === 'string') {
           allDependencyKeys.push(option)
+          equalities.set(option, this.#shallowEquality)
         } else {
-          const { key, staleOnChange, allowBlank } = option
+          const { key, staleOnChange, allowBlank, equality = this.#shallowEquality } = option
+
           allDependencyKeys.push(key)
+
           if (staleOnChange) {
             dependencyKeysThatStaleResource.add(key)
           }
+
           if (allowBlank) {
             dependencyKeysAllowedToBeBlank.add(key)
           }
+
+          equalities.set(key, equality)
         }
 
         return options
       },
       {
         allDependencyKeys: [],
+        equalities: new Map(),
         dependencyKeysThatStaleResource: new Set(),
         dependencyKeysAllowedToBeBlank: new Set(),
       }
@@ -221,5 +244,9 @@ export default class ResourceDependenciesFeature {
 
   static #getChangedKeys(left, right) {
     return Object.keys(left).filter(key => left[key] !== right[key])
+  }
+
+  static #shallowEquality(left, right) {
+    return left === right
   }
 }

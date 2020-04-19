@@ -91,7 +91,8 @@ export default function HotCarDeals() {
   - as shown above, to listen to several selectors, pass an array
   - rather than a simple string, each selector can be represented as an object with additional parameters (i.e. `{ key: 'userId', staleOnChange: true '}`):
     - **staleOnChange**: _(false)_ - if `true`, will stale a resource when dependency changes, rather than clearing the store
-    - **allowBlank**: _(false)_ – if `true`, will not lock resource from fetching when resolved value is `null` or `undefined`    
+    - **allowBlank**: _(false)_ – if `true`, will not lock resource from fetching when resolved value is `null` or `undefined`
+    - **equality**: _(===)_ - for rare cases when it is needed to override equality check which decides whether dependency value changed or not    
 
 #### Selectors
 
