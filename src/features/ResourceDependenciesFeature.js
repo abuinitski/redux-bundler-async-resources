@@ -171,8 +171,6 @@ export default class ResourceDependenciesFeature {
             dependencyKeys.some((key, keyIndex) => {
               const value = dependencyValues[key]
               const nextValue = nextDependencyValuesList[keyIndex]
-              console.log(`M: `, this.#equalities)
-              console.log(`R (${key}): `, this.#equalities.get(key))
               return !this.#equalities.get(key)(value, nextValue)
             })
 
