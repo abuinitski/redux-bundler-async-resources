@@ -139,6 +139,8 @@ export default function createInfiniteScrollAsyncCollectionBundle(inputOptions) 
       }
 
       return {
+        ...state,
+        
         loadMoreRequestId: null,
         loadMoreError: error,
         loadMoreErrorAt: appTime,
